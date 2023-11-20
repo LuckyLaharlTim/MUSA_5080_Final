@@ -1,0 +1,89 @@
+---
+title: "Figure-it-out-markdown"
+author: "Trevor Kapuvari & Timothy Oliver"
+date: "17 November 2023"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+
+```{r clear_environment, include=F, results = 'hide'}
+rm(list=ls())
+```
+
+
+```{r setup, include=FALSE}
+
+# global options for knitting chunks
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+knitr::opts_chunk$set(echo = TRUE,message=F,warning=F)
+
+
+
+library(summarytools)
+library(stargazer)
+library(vtable)
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot) # plot correlation plot
+library(corrr)      # another way to plot correlation plot
+library(kableExtra)
+library(jtools)     # for regression model plots
+library(ggstance) # to support jtools plots
+library(ggpubr)    # plotting R^2 value on ggplot point scatter
+library(broom.mixed) # needed for effects plots
+library(tufte)
+library(viridis)
+library(RSocrata)
+library(classInt)
+library(spatstat)
+library(pscl)
+library(plotROC)
+library(pROC)
+library(lubridate)
+library(ROSE)
+library(tigris)
+library(knitr)
+library(RSocrata)
+
+
+# functions and data directory
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+source("themes/plotTheme_TO.r")
+# source("functions/quantileBreaks.r")
+
+palette2 <- c("#981FAC","#FF006A")
+palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
+palette5a <- c("#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c")
+palette4a <- c("#D2FBD4","#92BCAB","#527D82","#123F5A")
+palette2a <- c("#6baed6","#08519c")
+
+palette9 <- viridis(9)
+
+options(scipen=999)
+
+```
+
+# Here We Go
