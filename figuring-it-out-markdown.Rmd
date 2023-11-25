@@ -87,3 +87,31 @@ options(scipen=999)
 ```
 
 # Here We Go
+
+To download the data, go [here](https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance/) using the button in the top-right and place the zip file in the data folder. The `kaggle_data` chunk should handle the rest.
+
+```{r kaggle_data}
+if (!dir.exists("data/Kaggle_transit&amtrak_data/")){
+unzip("data/Kaggle_transit&amtrak_data.zip",exdir="data/Kaggle_transit&amtrak_data")
+}
+
+datApr2020 <- read.csv("data/Kaggle_transit&amtrak_data/2020_04.csv")
+datMay2020 <- read.csv("data/Kaggle_transit&amtrak_data/2020_05.csv")
+
+
+datApr2020 <- datApr2020 %>%
+  mutate(interval60 = floor_date(ymd_hms(scheduled_time), unit = "hour"),
+         interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
+         interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
+         week = week(interval60),
+         dotw = wday(interval60,label=T))
+
+datMay2020 <- datMay2020 %>%
+  mutate(interval60 = floor_date(ymd_hms(scheduled_time), unit = "hour"),
+         interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
+         interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
+         week = week(interval60),
+         dotw = wday(interval60,label=T))
+
+```
+
