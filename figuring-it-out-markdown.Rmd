@@ -198,6 +198,9 @@ ggplot(may_w_stations)+
 
 ```
 
+**Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
+
+
 ```{r from_station}
 ggplot(may_w_stations %>%
          group_by(interval60, from_station) %>%
