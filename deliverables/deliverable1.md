@@ -5,6 +5,8 @@ The minimum viable product desired from this data is a easily digestible visuali
 
 With a relatively reliable model for the different stations in the NJ Transit system, the company would also like to see the delays easily communicated to transit users in existing platforms like the NJ Transit app.
 
+Instead of showing all predicted delays to transit users, the transit authority will use predictions to gauge which trains or lines deserve the most attention that week while the predictions are compiled into a "track record" to show users.
+
 # How could data make a difference in answering this question? Do you have a sense for the business as usual decision making?
 
 The understanding of origin and destination points are key to categorizing delays as a simple inconvenience versus having better alternatives by using other routes or modes.
@@ -36,7 +38,7 @@ Further deliberation on which visualizations will be used will come along with t
 # What are the use cases for your app and what should the app do?
 
 *	There are foreseen delays or emergencies that impacts other trains.
-	-	Make it clear wheter a delay is predicted or confirmed.
+	-	Make it clear whether a delay is predicted or confirmed.
 *	A delay is forecasted to be so long that an alternate train would be better (and new tickets are not an issue to obtain)
 	-	Use different color scheme and symbols (yellow : warning, red (or dark-brown) : other route or mode, dark-red : complete stop)
 *	Delay is predicted how far in advance?
