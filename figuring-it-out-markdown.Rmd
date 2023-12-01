@@ -117,6 +117,8 @@ datMay2020 <- datMay2020 %>%
 
 nj_trans_stations <- st_read("data/Rail_Stations_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
 
+nj_trans_lines <- st_read("data/Rail_Lines_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
+
 ## !!!
 ### WE LOSE 27 STATIONS BY MERGING THE NAMES TO THE POINT DATA
 ## !!!
@@ -125,23 +127,28 @@ may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y
   rename(from_station = STATION_ID,
          fromLat = LATITUDE, fromLon = LONGITUDE, 
          from_atis_id = ATIS_ID, from_muni = MUNICIPALITY,
-         from_rail_service = RAIL_SERVICE,
-         from_line_code = LINE_CODE)%>%
-  select(-OBJECTID_1)%>%
+         from_rail_service = RAIL_SERVICE)%>%
+  select(-OBJECTID_1,-LINE_CODE)%>%
   st_drop_geometry()%>%
   merge(y=nj_trans_stations,by.x="to",by.y="STATION_ID")%>%
   rename(toLat = LATITUDE, toLon = LONGITUDE, 
          to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
-         to_rail_service = RAIL_SERVICE,
-         to_line_code = LINE_CODE) %>%
+         to_rail_service = RAIL_SERVICE) %>%
   select(-OBJECTID_1)%>%
-  st_drop_geometry() 
-
+  st_drop_geometry() %>%
+  merge(y=nj_trans_lines,by="LINE_CODE")%>%
+  # rename(toLat = LATITUDE, toLon = LONGITUDE, 
+  #        to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+  #        to_rail_service = RAIL_SERVICE,
+  #        to_line_code = LINE_CODE) %>%
+  select(-OBJECTID)%>%
+  st_drop_geometry()
+  
 ```
 
 ```{r simple_map, results='hide'}
 census <- 
-  get_acs(geography = "state", 
+  get_acs(geography = "county", 
           variables = c("B01003_001", "B19013_001", 
                         "B02001_002", "B08013_001",
                         "B08012_001", "B08301_001", 
@@ -159,14 +166,67 @@ census <-
          Total_Public_Trans = B08301_010E)%>%
   st_transform(crs="EPSG:4326")
 
+tracts <- 
+  get_acs(geography = "tract", 
+          variables = c("B01003_001", "B19013_001", 
+                        "B02001_002", "B08013_001",
+                        "B08012_001", "B08301_001", 
+                        "B08301_010", "B01002_001"), 
+          year = 2021, 
+          geometry = TRUE,
+          state="NJ",
+          output = "wide") %>%
+  rename(Total_Pop =  B01003_001E,
+         Med_Inc = B19013_001E,
+         Med_Age = B01002_001E,
+         White_Pop = B02001_002E,
+         Travel_Time = B08013_001E,
+         Num_Commuters = B08012_001E,
+         Means_of_Transport = B08301_001E,
+         Total_Public_Trans = B08301_010E)%>%
+  st_transform(crs="EPSG:4326")
 
+threeStates = census%>%filter(grepl("New Jersey",NAME)|grepl("Pennsylvania",NAME)|grepl("New York",NAME))
+nj = census%>%filter(grepl("New Jersey",NAME))
+
+```
+
+
+```{r census_join}
+may_census <- st_join(may_w_stations %>% 
+          filter(is.na(fromLon) == FALSE &
+                   is.na(fromLat) == FALSE &
+                   is.na(toLon) == FALSE &
+                   is.na(toLat) == FALSE) %>%
+          st_as_sf(., coords = c("fromLon", "fromLat"), crs = 4326),
+        threeStates %>%
+          st_transform(crs=4326),
+        join=st_intersects,
+              left = TRUE) %>%
+  rename(Origin.County = GEOID) %>%
+  mutate(fromCountyLon = unlist(map(geometry, 1)),
+         fromCountyLat = unlist(map(geometry, 2)))%>%
+  as.data.frame() %>%
+  select(-geometry)%>%
+  st_as_sf(., coords = c("toLon", "toLat"), crs = 4326) %>%
+  st_join(., threeStates %>%
+            st_transform(crs=4326),
+          join=st_intersects,
+          left = TRUE) %>%
+  rename(Destination.County = GEOID)  %>%
+  mutate(toCountyLon = unlist(map(geometry, 1)),
+         toCountyLat = unlist(map(geometry, 2)))%>%
+  as.data.frame() %>%
+  select(-geometry)
 ```
 
 ```{r view_stations}
 
 ggplot()+
-  geom_sf(data=census%>%filter(NAME=="New Jersey"|NAME=="Pennsylvania"|NAME=="New York")%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
-            geom_sf(data=nj_trans_stations,color="lightblue")+
+  # geom_sf(data=threeStates%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+  geom_sf(data=nj%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+  geom_sf(data=nj_trans_stations,color="blue")+
+  geom_sf(data=nj_trans_lines,color = GRAY4)+
   plotTheme()+
   theme(panel.background=element_rect(
         fill = "#fcfcf4",
@@ -196,6 +256,14 @@ ggplot(may_w_stations)+
        y="Number of trips")+
   plotTheme()
 
+# forgot what this plot was going to be
+ggplot(may_w_stations %>%
+         group_by)+
+  geom_bar(aes(x=delayed,fill=delayed,show.legend=F))+
+  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
+       y="Number of trips")+
+  plotTheme()
+
 ```
 
 **Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
@@ -212,3 +280,64 @@ ggplot(may_w_stations %>%
   plotTheme()+
   coord_cartesian(xlim=c(0,10))
 ```
+
+### panel 
+```{r panel}
+length(unique(may_w_stations$interval60)) * length(unique(may_w_stations$from_id))
+
+
+study.panel <- 
+  expand.grid(interval60=unique(may_w_stations$interval60), 
+              from_id = unique(may_w_stations$from_id)) %>%
+  left_join(., may_census %>%
+              # changed fromLon & Lat to fromCountyLon & Lat
+              select(train_id, from_id, from_station, fromCountyLon, fromCountyLat,line,delay_minutes)%>% # Origin.Tract,
+              distinct() %>%
+              group_by(from_id) %>%
+              slice(1))
+
+nrow(study.panel)   
+```
+
+```{r geometry_in_panel}
+ride.panel <- may_census %>%
+  mutate(Trip_Counter = 1) %>%
+  right_join(study.panel) %>% 
+  # changed fromLon & Lat to fromCountyLon & Lat
+  group_by(interval60, from_id, from_station, Origin.County, fromCountyLon, fromCountyLat,delay_minutes) %>%
+  summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
+  ungroup() %>%
+  filter(is.na(from_id) == FALSE) %>%
+  mutate(week = week(interval60),
+         dotw = wday(interval60, label = TRUE)) %>%
+  filter(is.na(Origin.County) == FALSE) %>%
+  # left_join(study.panel, threeStates %>%
+  #             as.data.frame()) %>% # extra parenthesis
+              # select(-geometry), by = c("Origin.Tract" = "GEOID")) %>%
+  arrange(from_id, interval60) %>% 
+  mutate(lagHour = dplyr::lag(delay_minutes,1),
+         lag2Hours = dplyr::lag(delay_minutes,2),
+         lag3Hours = dplyr::lag(delay_minutes,3),
+         lag4Hours = dplyr::lag(delay_minutes,4),
+         lag12Hours = dplyr::lag(delay_minutes,12),
+         lag1day = dplyr::lag(delay_minutes,24)) %>%
+         # # Indigenous Peoples' (Columbus) Day is federally recognized
+         # #  but not an official city holiday of Austin
+         # ## I include it to account for holiday lag
+         # holiday = ifelse(yday(interval60) == 282,1,0)) %>%
+   mutate(day = yday(interval60)) # %>%
+   # mutate(holidayLag = case_when(dplyr::lag(holiday, 1) == 1 ~ "PlusOneDay",
+   #                               dplyr::lag(holiday, 2) == 1 ~ "PlusTwoDays",
+   #                               dplyr::lag(holiday, 3) == 1 ~ "PlusThreeDays",
+   #                               dplyr::lead(holiday, 1) == 1 ~ "MinusOneDay",
+   #                               dplyr::lead(holiday, 2) == 1 ~ "MinusTwoDays",
+   #                               dplyr::lead(holiday, 3) == 1 ~ "MinusThreeDays"),
+   #       holidayLag = ifelse(is.na(holidayLag) == TRUE, 0, holidayLag))
+
+```
+
+### get lines and visualize reliability
+
+### timelapse of reliability (week)
+
+### add in the envelope of time delay (sd in prediction)
