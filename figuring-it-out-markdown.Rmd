@@ -1,7 +1,7 @@
 ---
 title: "Figure-it-out-markdown"
 author: "Trevor Kapuvari & Timothy Oliver"
-date: "17 November 2023"
+date: "15 December 2023"
 output:
   html_document:
     toc: true
@@ -90,7 +90,7 @@ options(scipen=999)
 
 To download the data, go [here](https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance/) using the button in the top-right and place the zip file in the data folder. The `kaggle_data` chunk should handle the rest.
 
-```{r kaggle_data}
+```{r kaggle_data, results='hide'}
 if (!dir.exists("data/Kaggle_transit&amtrak_data/")){
 unzip("data/Kaggle_transit&amtrak_data.zip",exdir="data/Kaggle_transit&amtrak_data")
 }
@@ -117,6 +117,10 @@ datMay2020 <- datMay2020 %>%
 
 nj_trans_stations <- st_read("data/Rail_Stations_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
 
+## !!!
+### WE LOSE 27 STATIONS BY MERGING THE NAMES TO THE POINT DATA
+## !!!
+
 may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y="from")%>%
   rename(from_station = STATION_ID,
          fromLat = LATITUDE, fromLon = LONGITUDE, 
@@ -135,7 +139,7 @@ may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y
 
 ```
 
-```{r simple_map}
+```{r simple_map, results='hide'}
 census <- 
   get_acs(geography = "state", 
           variables = c("B01003_001", "B19013_001", 
@@ -155,12 +159,22 @@ census <-
          Total_Public_Trans = B08301_010E)%>%
   st_transform(crs="EPSG:4326")
 
-ggplot()+
-  geom_sf(data=census%>%filter(NAME=="New Jersey")%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
-            geom_sf(data=nj_trans_stations,color="lightblue")
 
 ```
 
+```{r view_stations}
+
+ggplot()+
+  geom_sf(data=census%>%filter(NAME=="New Jersey"|NAME=="Pennsylvania"|NAME=="New York")%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+            geom_sf(data=nj_trans_stations,color="lightblue")+
+  plotTheme()+
+  theme(panel.background=element_rect(
+        fill = "#fcfcf4",
+        colour = NA),
+        panel.grid.major=element_blank(),
+        axis.text=element_blank())
+
+```
 
 ## Exploratory Analysis
 
@@ -182,4 +196,16 @@ ggplot(may_w_stations)+
        y="Number of trips")+
   plotTheme()
 
+```
+
+```{r from_station}
+ggplot(may_w_stations %>%
+         group_by(interval60, from_station) %>%
+         tally())+
+  geom_histogram(aes(n), binwidth = 1, color = GRAY8)+
+  labs(title="Train trips per hr by station. NJTransit & Amtrak Area, May, 2020",
+       x="Trip Counts", 
+       y="Number of Stations")+
+  plotTheme()+
+  coord_cartesian(xlim=c(0,10))
 ```
