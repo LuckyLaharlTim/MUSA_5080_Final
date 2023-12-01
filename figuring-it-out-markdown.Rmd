@@ -104,14 +104,82 @@ datApr2020 <- datApr2020 %>%
          interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
          interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
          week = week(interval60),
-         dotw = wday(interval60,label=T))
+         dotw = wday(interval60,label=T),
+         delayed = ifelse(delay_minutes > 0,TRUE,FALSE))
 
 datMay2020 <- datMay2020 %>%
   mutate(interval60 = floor_date(ymd_hms(scheduled_time), unit = "hour"),
          interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
          interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
          week = week(interval60),
-         dotw = wday(interval60,label=T))
+         dotw = wday(interval60,label=T),
+         delayed = ifelse(delay_minutes > 0,TRUE,FALSE))
+
+nj_trans_stations <- st_read("data/Rail_Stations_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
+
+may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y="from")%>%
+  rename(from_station = STATION_ID,
+         fromLat = LATITUDE, fromLon = LONGITUDE, 
+         from_atis_id = ATIS_ID, from_muni = MUNICIPALITY,
+         from_rail_service = RAIL_SERVICE,
+         from_line_code = LINE_CODE)%>%
+  select(-OBJECTID_1)%>%
+  st_drop_geometry()%>%
+  merge(y=nj_trans_stations,by.x="to",by.y="STATION_ID")%>%
+  rename(toLat = LATITUDE, toLon = LONGITUDE, 
+         to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+         to_rail_service = RAIL_SERVICE,
+         to_line_code = LINE_CODE) %>%
+  select(-OBJECTID_1)%>%
+  st_drop_geometry() 
 
 ```
 
+```{r simple_map}
+census <- 
+  get_acs(geography = "state", 
+          variables = c("B01003_001", "B19013_001", 
+                        "B02001_002", "B08013_001",
+                        "B08012_001", "B08301_001", 
+                        "B08301_010", "B01002_001"), 
+          year = 2021, 
+          geometry = TRUE, 
+          output = "wide") %>%
+  rename(Total_Pop =  B01003_001E,
+         Med_Inc = B19013_001E,
+         Med_Age = B01002_001E,
+         White_Pop = B02001_002E,
+         Travel_Time = B08013_001E,
+         Num_Commuters = B08012_001E,
+         Means_of_Transport = B08301_001E,
+         Total_Public_Trans = B08301_010E)%>%
+  st_transform(crs="EPSG:4326")
+
+ggplot()+
+  geom_sf(data=census%>%filter(NAME=="New Jersey")%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+            geom_sf(data=nj_trans_stations,color="lightblue")
+
+```
+
+
+## Exploratory Analysis
+
+```{r plots}
+
+ggplot(may_w_stations %>%
+         group_by(interval60) %>%
+         tally())+
+  geom_line(aes(x = interval60, y = n))+
+  labs(title="Train Trips in NYC Area, May, 2020",
+       x="Date", 
+       y="Number of trips")+
+  plotTheme()+
+  coord_cartesian(ylim=c(0,300))
+
+ggplot(may_w_stations)+
+  geom_bar(aes(x=delayed,fill=delayed,show.legend=F))+
+  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
+       y="Number of trips")+
+  plotTheme()
+
+```
