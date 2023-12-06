@@ -1,0 +1,421 @@
+---
+title: "Figure-it-out-markdown"
+author: "Trevor Kapuvari & Timothy Oliver"
+date: "15 December 2023"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+
+```{r clear_environment, include=F, results = 'hide'}
+rm(list=ls())
+```
+
+
+```{r setup, include=FALSE}
+
+# global options for knitting chunks
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+knitr::opts_chunk$set(echo = TRUE,message=F,warning=F)
+
+
+
+library(summarytools)
+library(stargazer)
+library(vtable)
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(spdep)
+library(caret)
+library(ckanr)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(ggcorrplot) # plot correlation plot
+library(corrr)      # another way to plot correlation plot
+library(kableExtra)
+library(jtools)     # for regression model plots
+library(ggstance) # to support jtools plots
+library(ggpubr)    # plotting R^2 value on ggplot point scatter
+library(broom.mixed) # needed for effects plots
+library(tufte)
+library(viridis)
+library(RSocrata)
+library(classInt)
+library(spatstat)
+library(pscl)
+library(plotROC)
+library(pROC)
+library(lubridate)
+library(ROSE)
+library(tigris)
+library(knitr)
+library(RSocrata)
+library(gganimate)
+
+
+# functions and data directory
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+source("themes/plotTheme_TO.r")
+# source("functions/quantileBreaks.r")
+
+palette2 <- c("#981FAC","#FF006A")
+palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
+palette5a <- c("#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c")
+palette4a <- c("#D2FBD4","#92BCAB","#527D82","#123F5A")
+palette2a <- c("#6baed6","#08519c")
+
+palette9 <- viridis(9)
+
+options(scipen=999)
+
+```
+
+# Here We Go
+
+To download the data, go [here](https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance/) using the button in the top-right and place the zip file in the data folder. The `kaggle_data` chunk should handle the rest.
+
+```{r kaggle_data, results='hide'}
+if (!dir.exists("data/Kaggle_transit&amtrak_data/")){
+unzip("data/Kaggle_transit&amtrak_data.zip",exdir="data/Kaggle_transit&amtrak_data")
+}
+
+datApr2020 <- read.csv("data/Kaggle_transit&amtrak_data/2020_04.csv")
+datMay2020 <- read.csv("data/Kaggle_transit&amtrak_data/2020_05.csv")
+
+
+datApr2020 <- datApr2020 %>%
+  mutate(interval60 = floor_date(ymd_hms(scheduled_time), unit = "hour"),
+         interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
+         interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
+         week = week(interval60),
+         dotw = wday(interval60,label=T),
+         delayed = ifelse(delay_minutes > 0,TRUE,FALSE))
+
+datMay2020 <- datMay2020 %>%
+  mutate(interval60 = floor_date(ymd_hms(scheduled_time), unit = "hour"),
+         interval15 = floor_date(ymd_hms(scheduled_time), unit = "15 mins"),
+         interval1 = floor_date(ymd_hms(scheduled_time), unit = "min"),
+         week = week(interval60),
+         dotw = wday(interval60,label=T),
+         delayed = ifelse(delay_minutes > 0,TRUE,FALSE))
+
+nj_trans_stations <- st_read("data/Rail_Stations_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
+
+nj_trans_lines <- st_read("data/Rail_Lines_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
+
+## !!!
+### WE LOSE 27 STATIONS BY MERGING THE NAMES TO THE POINT DATA
+## !!!
+
+may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y="from")%>%
+  rename(from_station = STATION_ID,
+         fromLat = LATITUDE, fromLon = LONGITUDE, 
+         from_atis_id = ATIS_ID, from_muni = MUNICIPALITY,
+         from_rail_service = RAIL_SERVICE)%>%
+  select(-OBJECTID_1,-LINE_CODE)%>%
+  st_drop_geometry()%>%
+  merge(y=nj_trans_stations,by.x="to",by.y="STATION_ID")%>%
+  rename(to_station = to,
+         toLat = LATITUDE, toLon = LONGITUDE, 
+         to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+         to_rail_service = RAIL_SERVICE) %>%
+  select(-OBJECTID_1)%>%
+  st_drop_geometry() %>%
+  merge(y=nj_trans_lines,by="LINE_CODE")%>%
+  # rename(toLat = LATITUDE, toLon = LONGITUDE, 
+  #        to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+  #        to_rail_service = RAIL_SERVICE,
+  #        to_line_code = LINE_CODE) %>%
+  select(-OBJECTID)%>%
+  st_drop_geometry()
+```
+
+  
+  
+```{r simple_map, results='hide'}
+census <- 
+  get_acs(geography = "county", 
+          variables = c("B01003_001", "B19013_001", 
+                        "B02001_002", "B08013_001",
+                        "B08012_001", "B08301_001", 
+                        "B08301_010", "B01002_001"), 
+          year = 2021, 
+          geometry = TRUE, 
+          output = "wide") %>%
+  rename(Total_Pop =  B01003_001E,
+         Med_Inc = B19013_001E,
+         Med_Age = B01002_001E,
+         White_Pop = B02001_002E,
+         Travel_Time = B08013_001E,
+         Num_Commuters = B08012_001E,
+         Means_of_Transport = B08301_001E,
+         Total_Public_Trans = B08301_010E)%>%
+  st_transform(crs="EPSG:4326")
+
+tracts <- 
+  get_acs(geography = "tract", 
+          variables = c("B01003_001", "B19013_001", 
+                        "B02001_002", "B08013_001",
+                        "B08012_001", "B08301_001", 
+                        "B08301_010", "B01002_001"), 
+          year = 2021, 
+          geometry = TRUE,
+          state="NJ",
+          output = "wide") %>%
+  rename(Total_Pop =  B01003_001E,
+         Med_Inc = B19013_001E,
+         Med_Age = B01002_001E,
+         White_Pop = B02001_002E,
+         Travel_Time = B08013_001E,
+         Num_Commuters = B08012_001E,
+         Means_of_Transport = B08301_001E,
+         Total_Public_Trans = B08301_010E)%>%
+  st_transform(crs="EPSG:4326")
+
+threeStates = census%>%filter(grepl("New Jersey",NAME)|grepl("Pennsylvania",NAME)|grepl("New York",NAME))
+nj = census%>%filter(grepl("New Jersey",NAME))
+```
+
+
+## Figure this Out
+```{r census_join}
+may_census <- st_join(may_w_stations %>% 
+          filter(is.na(fromLon) == FALSE &
+                   is.na(fromLat) == FALSE &
+                   is.na(toLon) == FALSE &
+                   is.na(toLat) == FALSE) %>%
+          st_as_sf(., coords = c("fromLon", "fromLat"), crs = 4326),
+        threeStates %>%
+          st_transform(crs=4326),
+        join=st_intersects) %>%
+  mutate(fromCountyLon = unlist(map(geometry, 1)),
+         fromCountyLat = unlist(map(geometry, 2)))%>%
+  as.data.frame() %>%
+  rename(Origin.County = GEOID) %>%
+  select(-geometry)%>%
+  st_as_sf(., coords = c("toLon", "toLat"), crs = 4326) %>%
+  st_join(., threeStates %>%
+            st_transform(crs=4326),
+          join=st_intersects) %>%
+  rename(Destination.County = GEOID)  %>%
+  mutate(toCountyLon = unlist(map(geometry, 1)),
+         toCountyLat = unlist(map(geometry, 2)))%>%
+  as.data.frame() %>%
+  select(-geometry)
+```
+
+```{r view_stations}
+
+ggplot()+
+  # geom_sf(data=threeStates%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+  geom_sf(data=nj%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
+  geom_sf(data=nj_trans_stations,color="blue")+
+  geom_sf(data=nj_trans_lines,color = GRAY4)+
+  plotTheme()+
+  theme(panel.background=element_rect(
+        fill = "#fcfcf4",
+        colour = NA),
+        panel.grid.major=element_blank(),
+        axis.text=element_blank())
+```
+
+## Exploratory Analysis
+
+```{r plots}
+
+expA = may_w_stations[is.na(may_w_stations$delayed)==T,]$delayed="Amtrak"
+
+ggplot(may_w_stations %>%
+         group_by(interval60) %>%
+         tally())+
+  geom_line(aes(x = interval60, y = n))+
+  labs(title="Train Trips in NYC Area, May, 2020",
+       x="Date", 
+       y="Number of trips")+
+  plotTheme()+
+  coord_cartesian(ylim=c(0,300))
+
+ggplot(may_w_stations,mapping=aes(x=delayed))+
+  geom_bar(aes(fill=delayed,show.legend=F))+
+  geom_text(aes(label=..count..),stat="count",color="white",vjust=1.5)+
+  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
+       y="Number of trips",
+       x = "Delayed")+
+  guides(fill=guide_legend(title = "Delayed Train?"))+
+  scale_color_manual(labels=c("False","True","Amtrak"),
+                     values = c(GRAY9,BLUE3,GREEN3) # did nothing?
+                     )+
+  plotTheme()+
+  theme(panel.border = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank())
+
+# # forgot what this plot was going to be
+# ggplot(expA %>%
+#          group_by)+
+#   geom_bar(aes(x=delayed,fill=delayed,show.legend=F))+
+#   geom_text(aes(label=..count..),stat="count",color="brown",vjust=1.5)+
+#   labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
+#        y="Number of trips")+
+#   plotTheme()
+
+```
+
+**Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
+
+
+```{r from_station}
+ggplot(may_w_stations %>%
+         group_by(interval60, from_station) %>%
+         tally())+
+  geom_histogram(aes(n), binwidth = 1, color = GRAY8)+
+  labs(title="Train trips per hr by station. NJTransit & Amtrak Area, May, 2020",
+       x="Trip Counts", 
+       y="Number of Stations")+
+  plotTheme()+
+  coord_cartesian(xlim=c(0,10))
+```
+
+
+### panel 
+```{r panel}
+length(unique(may_w_stations$interval60)) * length(unique(may_w_stations$from_id))
+
+
+study.panel <- 
+  expand.grid(interval60=unique(may_w_stations$interval60), 
+              from_id = unique(may_w_stations$from_id)) %>%
+  left_join(., may_census %>%
+              # changed fromLon & Lat to fromCountyLon & Lat
+              select(train_id, from_id, from_station, fromCountyLon, fromCountyLat,line,delay_minutes)%>% # Origin.Tract,
+              distinct() %>%
+              group_by(from_id) %>%
+              slice(1))
+
+nrow(study.panel)
+```
+
+
+```{r geometry_in_panel}
+ride.panel <- may_census %>%
+  mutate(Trip_Counter = 1) %>%
+  right_join(study.panel) %>% 
+  # changed fromLon & Lat to fromCountyLon & Lat
+  group_by(interval60, from_id, from_station, Origin.County, fromCountyLon, fromCountyLat,delay_minutes) %>%
+  summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
+  ungroup() %>%
+  filter(is.na(from_id) == FALSE) %>%
+  mutate(week = week(interval60),
+         dotw = wday(interval60, label = TRUE)) %>%
+  filter(is.na(Origin.County) == FALSE) %>%
+  # left_join(study.panel, threeStates %>%
+  #             as.data.frame()) %>% # extra parenthesis
+              # select(-geometry), by = c("Origin.Tract" = "GEOID")) %>%
+  arrange(from_id, interval60) %>% 
+  mutate(lagHour = dplyr::lag(delay_minutes,1),
+         lag2Hours = dplyr::lag(delay_minutes,2),
+         lag3Hours = dplyr::lag(delay_minutes,3),
+         lag4Hours = dplyr::lag(delay_minutes,4),
+         lag12Hours = dplyr::lag(delay_minutes,12),
+         lag1day = dplyr::lag(delay_minutes,24)) %>%
+         # # Indigenous Peoples' (Columbus) Day is federally recognized
+         # #  but not an official city holiday of Austin
+         # ## I include it to account for holiday lag
+         # holiday = ifelse(yday(interval60) == 282,1,0)) %>%
+   mutate(day = yday(interval60)) # %>%
+   # mutate(holidayLag = case_when(dplyr::lag(holiday, 1) == 1 ~ "PlusOneDay",
+   #                               dplyr::lag(holiday, 2) == 1 ~ "PlusTwoDays",
+   #                               dplyr::lag(holiday, 3) == 1 ~ "PlusThreeDays",
+   #                               dplyr::lead(holiday, 1) == 1 ~ "MinusOneDay",
+   #                               dplyr::lead(holiday, 2) == 1 ~ "MinusTwoDays",
+   #                               dplyr::lead(holiday, 3) == 1 ~ "MinusThreeDays"),
+   #       holidayLag = ifelse(is.na(holidayLag) == TRUE, 0, holidayLag))
+
+```
+
+### get lines and visualize reliability
+
+
+### timelapse of reliability (week)
+
+```{r timelapse_beg}
+may_census %>% 
+  merge(y=census,by.x="Origin.County",by.y="GEOID") %>%
+  group_by(interval60, from_station, geometry,Origin.County) %>% 
+  tally() %>% 
+  rename(departures = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+
+plotCheckoutData <- may_census[yday(may_census$interval60)==138,] %>% 
+  merge(y=census,by.x="Origin.County",by.y="GEOID") %>% 
+  group_by(interval60, from_station, geometry,Origin.County) %>% 
+  tally() %>% 
+  rename(departures = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+  
+plotReturnData <- may_census[yday(may_census$interval60)==138,] %>% 
+  merge(y=census,by.x="Destination.County",by.y="GEOID") %>% 
+  group_by(interval60, to_station, geometry,Destination.County) %>% 
+  tally() %>% 
+  rename(arrivals = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+```
+
+
+```{r depart_animation}
+ggplot()+
+  geom_sf(data = plotCheckoutData,color="white",fill="beige")+
+  transition_null()+
+  geom_sf(data = plotCheckoutData,color="white",aes(fill = departures))+
+  # geom_sf(data = cPoints[cPoints$interval60 %in% plotCheckoutData$interval60,],color=GRAY9)+
+  plotTheme()+
+  # theme(panel.background = "beige",
+        # axis.text = element_blank())+
+  scale_fill_viridis(direction=-1,option="C",discrete=F)+
+  labs(title="Train Trips by Origin County, May, 2020")+
+  transition_manual(interval60)
+  # coord_sf(crs = st_crs(plotCheckoutData), datum = NA)
+
+
+
+```
+
+```{r return_animation}
+
+ggplot()+
+  geom_sf(data = plotReturnData,color="white",fill="beige")+
+  transition_null()+
+  geom_sf(data = plotReturnData,color="white",aes(fill = returns))+
+  # geom_sf(data = rPoints[rPoints$interval60 %in% plotReturnData$interval60,],color=GRAY9)+
+  plotTheme()+
+   # theme(panel.background = "beige",
+        # axis.text = element_blank())+
+  scale_fill_viridis(direction=-1,option="C",discrete=F)+
+  labs(title="Train Trips by Destination County, May, 2020")+
+  transition_manual(interval60)
+
+```
+
+### add in the envelope of time delay (sd in prediction)
