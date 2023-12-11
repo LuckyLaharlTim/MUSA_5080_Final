@@ -11,7 +11,7 @@ output:
 
 # Motivation
 
-Trains are a timeless mode of transportation that has revolutionized the world. As we aim to improve their reliability and accessibility, it is crucial to understand their performance records and allow riders to stay informed on travel updates, train reliability, and enable them to plan their trips accordingly. Hence, we have dedicated this brief to developing a two-part prediction model to forecast train delays, and connect this model to a concept mobile app that would connect multiple-transit groups and inform riders on expected delays. The purpose of the app is to incorporate all major train companies in the New York City area (MTA, Amtrack, NJ Transit, etc) by centralizing the ability to purchase train tickets in one app, be notified of delays or cancellations, and see performance metrics on train quality for adaptive planning. 
+Trains are a timeless mode of transportation that has revolutionized the world. As we aim to improve their reliability and accessibility, it is crucial to understand their performance records and allow riders to stay informed on travel updates, train reliability, and enable them to plan their trips accordingly. Hence, we have dedicated this brief to developing a two-part prediction model to forecast train delays. 
 
 This analysis serves as an experimental use-case that can be replicated to other transit regions in the United States and further enable inter-state travels to efficiently utilize train networks. 
 
@@ -292,14 +292,16 @@ ggplot(may_w_stations %>%
 ```
 ## Delay Count
 
-Delay count uhh
+The value of trains to the region also is rooted in their reliability and people's understanding of such. Out of the 70,000  recorded stops, there were roughly 52,000  of which that were delayed in some capacity. That is 70% of all trips. This graph records all delays regardless of severity, but still means there was higher likelihood or a commuter's trip being delayed than not. It is important to understand some delays recorded were negligible (less than 10 minutes), yet others were almost 2 hours. This information is what riders would find useful before it occurs, especially before arriving to their train station.  
+
+**Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
 
 ```{r bar plot}
 
 ggplot(may_w_stations,mapping=aes(x=delayed))+
   geom_bar(aes(fill=delayed,show.legend=F))+
   geom_text(aes(label=..count..),stat="count",color="white",vjust=1.5)+
-  labs(title="Delayed Train Trip Count for Northeast Corridor Line, May, 2020",
+  labs(title="Delayed Train Trip Count for NJ Transit, May 2020",
        y="Number of trips",
        x = "Delayed")+
   guides(fill=guide_legend(title = "Delayed Train?"))+
@@ -318,23 +320,25 @@ ggplot(may_w_stations,mapping=aes(x=delayed))+
 ```
 
 
+## Tracking Station Business 
 
-**Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
-
+Graph below shows that majority of stations each day only saw one or two train stops every hour. This frequency seen at majority of stations indicates a level of importance the timing these trains have in terms of efficiency. Large delays for stops that do not have multiple trains can result in riders having few to no alternative route options and must succumb to the lateness brought by delays. Places that see more trains are also jeopardized by delays for different reasons, delays, if large enough, can create rail congestion and in turn cause delays for other trains that would have otherwise been timely. 
 
 ```{r from_station}
 ggplot(may_w_stations %>%
          group_by(interval60, from_station) %>%
          tally())+
   geom_histogram(aes(n), binwidth = 1, color = GRAY8)+
-  labs(title="Train trips per hr by station. NJTransit & Amtrak Area, May, 2020",
+  labs(title="Train Trips per Hour. NJ Transit & Amtrak Area, May 2020",
        x="Trip Counts", 
-       y="Number of Stations")+
+       y="Number of Stops")+
   plotTheme()+
   coord_cartesian(xlim=c(0,10))
 ```
 
 ### panel 
+
+
 ```{r panel}
 length(unique(may_w_stations$interval60)) * length(unique(may_w_stations$from_id))
 
