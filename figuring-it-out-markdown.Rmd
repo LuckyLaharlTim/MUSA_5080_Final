@@ -1,5 +1,5 @@
 ---
-title: "Figure-it-out-markdown"
+title: "TrainTracker: Predicting New Jersey Transit Delays & Unifying Transit Information"
 author: "Trevor Kapuvari & Timothy Oliver"
 date: "15 December 2023"
 output:
@@ -9,6 +9,11 @@ output:
     code_folding: hide
 ---
 
+# Motivation
+
+Trains are a timeless mode of transportation that has revolutionized the world. As we aim to improve their reliability and accessibility, it is crucial to understand their performance records and allow riders to stay informed on travel updates, train reliability, and enable them to plan their trips accordingly. Hence, we have dedicated this brief to developing a two-part prediction model to forecast train delays, and connect this model to a concept mobile app that would connect multiple-transit groups and inform riders on expected delays. The purpose of the app is to incorporate all major train companies in the New York City area (MTA, Amtrack, NJ Transit, etc) by centralizing the ability to purchase train tickets in one app, be notified of delays or cancellations, and see performance metrics on train quality for adaptive planning. 
+
+This analysis serves as an experimental use-case that can be replicated to other transit regions in the United States and further enable inter-state travels to efficiently utilize train networks. 
 
 ```{r clear_environment, include=F, results = 'hide'}
 rm(list=ls())
@@ -86,9 +91,13 @@ options(scipen=999)
 
 ```
 
-# Here We Go
+# Data Sources
 
-To download the data, go [here](https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance/) using the button in the top-right and place the zip file in the data folder. The `kaggle_data` chunk should handle the rest.
+Our initial dataset is derived from Kaggle's NJ Transit & Amtrak Rail Performance. Due to the high volume of data, we narrowed the scope of the model to focus on April & May 2020. The data features Amtrak trains between New York & New Jersey, as well as recording lines from NJ Transit. This sample provides insight on performance at peak train-use because the Northeast Corridor, the main rail studied, is considered the busiest passenger rail line in the United States. Within the data we are able to explore the individual train's scheduled time, actual time, planned stations, and sequence in train line over the course of two months. That information allows our model to predict a delay based on its past performance and time of the week/day to detect any temporal patterns that may exist. 
+
+
+Source: https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance
+
 
 ```{r kaggle_data, results='hide'}
 if (!dir.exists("data/Kaggle_transit&amtrak_data/")){
@@ -119,9 +128,6 @@ nj_trans_stations <- st_read("data/Rail_Stations_of_NJ_Transit.geojson")%>% st_t
 
 nj_trans_lines <- st_read("data/Rail_Lines_of_NJ_Transit.geojson")%>% st_transform(crs="ESRI:102711")
 
-## !!!
-### WE LOSE 27 STATIONS BY MERGING THE NAMES TO THE POINT DATA
-## !!!
 
 may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y="from")%>%
   rename(from_station = STATION_ID,
@@ -137,16 +143,14 @@ may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y
   select(-OBJECTID_1)%>%
   st_drop_geometry() %>%
   merge(y=nj_trans_lines,by="LINE_CODE")%>%
-  # rename(toLat = LATITUDE, toLon = LONGITUDE, 
-  #        to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
-  #        to_rail_service = RAIL_SERVICE,
-  #        to_line_code = LINE_CODE) %>%
   select(-OBJECTID)%>%
   st_drop_geometry()
   
 ```
 
-```{r simple_map, results='hide'}
+Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and Pennsylvania area. The data provided here us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel. 
+
+```{r wrangling, results='hide'}
 census <- 
   get_acs(geography = "county", 
           variables = c("B01003_001", "B19013_001", 
@@ -191,6 +195,28 @@ nj = census%>%filter(grepl("New Jersey",NAME))
 
 ```
 
+# Means of Transport 
+
+This maps indicates the importance of using NYC and NJ Transit as our initial case-study area for our model. Commuting by train is underused in most areas of the country especially when distant from any major cities. New Jersey has a special case of being between two major metropolitan areas, New York and Philadelphia. This location makes the State optimal for long-distance train studies. Even when the majority of New York State and Pennsylvania are more blue, showing lower numbers of commuters, New Jersey's roughly purple palette proves the importance of trains in the regional economy. 
+
+```{r ThreeState Commuters by Rail}
+
+ggplot()+
+  geom_sf(data=threeStates,aes(fill = Means_of_Transport))+
+  labs(title = "Daily Passenger Train Commuters", fill = "Average Daily Commuters by Rail")+
+  scale_y_continuous(labels = scales::comma_format())+ #why not comma separation wtf 
+  scale_fill_gradient(low = "royalblue", high = "red")+ 
+  plotTheme()+
+  theme(panel.background=element_rect(
+        fill = "#fcfcf4",
+        colour = NA),
+        panel.grid.major=element_blank(),
+        axis.text=element_blank())
+
+
+```
+
+
 
 ```{r census_join}
 may_census <- st_join(may_w_stations %>% 
@@ -220,13 +246,18 @@ may_census <- st_join(may_w_stations %>%
   select(-geometry)
 ```
 
+
+# New Jersey Transit Map
+
+The map below depicts New Jersey Transit lines that we predicted delays for in the model. Predictions within the model ranged between 1 minute to almost 2 hours, for the purpose of the analysis and due to available data, we are focusing our attention of these lines. 
+
 ```{r view_stations}
 
 ggplot()+
-  # geom_sf(data=threeStates%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
-  geom_sf(data=nj%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill=GRAY9)+
-  geom_sf(data=nj_trans_stations,color="blue")+
-  geom_sf(data=nj_trans_lines,color = GRAY4)+
+  geom_sf(data=nj%>%st_transform(st_crs(nj_trans_stations)),color = "white",fill="darkgray")+
+  geom_sf(data=nj_trans_stations, color="black")+
+  geom_sf(data=nj_trans_lines,aes(color = LINE_NAME))+
+  labs(title = "New Jersey Transit Map", color = "Train Line")+
   plotTheme()+
   theme(panel.background=element_rect(
         fill = "#fcfcf4",
@@ -234,9 +265,14 @@ ggplot()+
         panel.grid.major=element_blank(),
         axis.text=element_blank())
 
+
 ```
 
-## Exploratory Analysis
+# Exploratory Analysis
+
+## Temporal Train Cycle 
+
+The graph below shows a temporal cycle of train trips by NJ Transit. One important factor when accounting for delays, whether the cause or the effects, is the time of day. The pattern between peak hours and when there are few trains can assist the model in detecting patterns in delays caused by time, and how greatly that effects the probability or length of the delay. 
 
 ```{r plots}
 
@@ -244,27 +280,44 @@ ggplot(may_w_stations %>%
          group_by(interval60) %>%
          tally())+
   geom_line(aes(x = interval60, y = n))+
-  labs(title="Train Trips in NYC Area, May, 2020",
+  labs(title="Train Trips in NYC Area (NJ Transit), May 2020",
        x="Date", 
-       y="Number of trips")+
+       y="Number of Trips")+
   plotTheme()+
   coord_cartesian(ylim=c(0,300))
 
-ggplot(may_w_stations)+
-  geom_bar(aes(x=delayed,fill=delayed,show.legend=F))+
-  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
-       y="Number of trips")+
-  plotTheme()
 
-# forgot what this plot was going to be
-ggplot(may_w_stations %>%
-         group_by)+
-  geom_bar(aes(x=delayed,fill=delayed,show.legend=F))+
-  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
-       y="Number of trips")+
-  plotTheme()
+
 
 ```
+## Delay Count
+
+Delay count uhh
+
+```{r bar plot}
+
+ggplot(may_w_stations,mapping=aes(x=delayed))+
+  geom_bar(aes(fill=delayed,show.legend=F))+
+  geom_text(aes(label=..count..),stat="count",color="white",vjust=1.5)+
+  labs(title="Delayed Train Trip Count for Northeast Corridor Line, May, 2020",
+       y="Number of trips",
+       x = "Delayed")+
+  guides(fill=guide_legend(title = "Delayed Train?"))+
+  scale_color_manual(labels=c("False","True","Amtrak"),
+                     values = c(GRAY9,BLUE3,GREEN3) # did nothing?
+                     )+
+  plotTheme()+
+  theme(panel.border = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank())
+
+
+
+```
+
+
 
 **Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
 
