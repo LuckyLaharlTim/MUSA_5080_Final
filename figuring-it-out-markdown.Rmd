@@ -336,6 +336,17 @@ ggplot(may_w_stations %>%
   coord_cartesian(xlim=c(0,10))
 ```
 
+```{r probability of delay attempt}
+delayprobability <- datMay2020 %>%
+  mutate(delay_prob = delay_minutes * 0)
+
+delayprobability <- glm(delay_prob ~ .,
+                     data = delayprobability %>% select(date, train_id, stop_sequence, from_id, to_id, delay_minutes, week),
+                     family="binomial" (link="logit"))
+
+```
+
+
 ### panel 
 
 
