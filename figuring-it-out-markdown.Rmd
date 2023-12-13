@@ -69,6 +69,7 @@ library(ROSE)
 library(tigris)
 library(knitr)
 library(RSocrata)
+library(gganimate)
 
 
 # functions and data directory
@@ -102,6 +103,9 @@ Source: https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-perfo
 ```{r kaggle_data, results='hide'}
 if (!dir.exists("data/Kaggle_transit&amtrak_data/")){
 unzip("data/Kaggle_transit&amtrak_data.zip",exdir="data/Kaggle_transit&amtrak_data")
+  
+  # archive <- archive("data/testing/Kaggle_transit&amtrak_data.7z")
+  # trial <- archive_read(archive=archive,file=archive$path[28],format='7zip')
 }
 
 datApr2020 <- read.csv("data/Kaggle_transit&amtrak_data/2020_04.csv")
@@ -137,20 +141,48 @@ may_w_stations <- merge(x= nj_trans_stations,y=datMay2020,by.x="STATION_ID",by.y
   select(-OBJECTID_1,-LINE_CODE)%>%
   st_drop_geometry()%>%
   merge(y=nj_trans_stations,by.x="to",by.y="STATION_ID")%>%
-  rename(toLat = LATITUDE, toLon = LONGITUDE, 
+  rename(to_station = to,
+         toLat = LATITUDE, toLon = LONGITUDE, 
          to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
          to_rail_service = RAIL_SERVICE) %>%
   select(-OBJECTID_1)%>%
   st_drop_geometry() %>%
   merge(y=nj_trans_lines,by="LINE_CODE")%>%
   select(-OBJECTID)%>%
-  st_drop_geometry()
-  
+  st_drop_geometry() %>%
+  st_set_geometry(value="geometry.x")
+
+apr_w_stations <- merge(x= nj_trans_stations,y=datApr2020,by.x="STATION_ID",by.y="from")%>%
+  rename(from_station = STATION_ID,
+         fromLat = LATITUDE, fromLon = LONGITUDE, 
+         from_atis_id = ATIS_ID, from_muni = MUNICIPALITY,
+         from_rail_service = RAIL_SERVICE)%>%
+  select(-OBJECTID_1,-LINE_CODE)%>%
+  st_drop_geometry()%>%
+  merge(y=nj_trans_stations,by.x="to",by.y="STATION_ID")%>%
+  rename(to_station = to,
+         toLat = LATITUDE, toLon = LONGITUDE, 
+         to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+         to_rail_service = RAIL_SERVICE) %>%
+  select(-OBJECTID_1)%>%
+  st_drop_geometry() %>%
+  merge(y=nj_trans_lines,by="LINE_CODE")%>%
+  # rename(toLat = LATITUDE, toLon = LONGITUDE, 
+  #        to_atis_id = ATIS_ID, to_muni = MUNICIPALITY,
+  #        to_rail_service = RAIL_SERVICE,
+  #        to_line_code = LINE_CODE) %>%
+  select(-OBJECTID)%>%
+  st_drop_geometry() %>%
+  st_set_geometry(value="geometry.x")
+
+rm(datMay2020,datApr2020)
 ```
 
+<<<<<<< Updated upstream
 Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and Pennsylvania area. The data provided here us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel. 
 
 ```{r wrangling, results='hide'}
+
 census <- 
   get_acs(geography = "county", 
           variables = c("B01003_001", "B19013_001", 
@@ -193,6 +225,7 @@ tracts <-
 threeStates = census%>%filter(grepl("New Jersey",NAME)|grepl("Pennsylvania",NAME)|grepl("New York",NAME))
 nj = census%>%filter(grepl("New Jersey",NAME))
 
+rm(census)
 ```
 
 # Means of Transport 
@@ -218,32 +251,101 @@ ggplot()+
 
 
 
-```{r census_join}
-may_census <- st_join(may_w_stations %>% 
-          filter(is.na(fromLon) == FALSE &
-                   is.na(fromLat) == FALSE &
-                   is.na(toLon) == FALSE &
-                   is.na(toLat) == FALSE) %>%
-          st_as_sf(., coords = c("fromLon", "fromLat"), crs = 4326),
-        threeStates %>%
-          st_transform(crs=4326),
-        join=st_intersects,
-              left = TRUE) %>%
-  rename(Origin.County = GEOID) %>%
-  mutate(fromCountyLon = unlist(map(geometry, 1)),
-         fromCountyLat = unlist(map(geometry, 2)))%>%
-  as.data.frame() %>%
-  select(-geometry)%>%
-  st_as_sf(., coords = c("toLon", "toLat"), crs = 4326) %>%
-  st_join(., threeStates %>%
-            st_transform(crs=4326),
-          join=st_intersects,
-          left = TRUE) %>%
-  rename(Destination.County = GEOID)  %>%
-  mutate(toCountyLon = unlist(map(geometry, 1)),
-         toCountyLat = unlist(map(geometry, 2)))%>%
-  as.data.frame() %>%
-  select(-geometry)
+```{r line_station_panel,cache=T}
+# length(unique(may_w_stations$interval60)) * length(unique(may_w_stations$from_id))
+
+
+study.panelM <- 
+  expand.grid(interval60=unique(may_w_stations$interval60), 
+              from_id = unique(may_w_stations$from_id)) %>%
+  left_join(., may_w_stations %>%
+              # changed fromLon & Lat to fromCountyLon & Lat
+              select(train_id, from_id, line,delay_minutes)%>% # Origin.Tract,
+              distinct() %>%
+              group_by(from_id) %>%
+              slice(1))
+
+study.panelA <- 
+  expand.grid(interval60=unique(apr_w_stations$interval60), 
+              from_id = unique(apr_w_stations$from_id)) %>%
+  left_join(., apr_w_stations %>%
+              # changed fromLon & Lat to fromCountyLon & Lat
+              select(train_id, from_id, line,delay_minutes)%>% # Origin.Tract,
+              distinct() %>%
+              group_by(from_id) %>%
+              slice(1))
+
+
+ride.panelM <- may_w_stations %>%
+  mutate(Trip_Counter = 1) %>%
+  right_join(study.panelM) %>% 
+  # changed fromLon & Lat to fromCountyLon & Lat
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
+  rename(line_length = SHAPE_Length) %>%
+  summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
+  ungroup() %>%
+  filter(is.na(from_id) == FALSE) %>%
+  mutate(week = week(interval60),
+         dotw = wday(interval60, label = TRUE)) %>%
+  # filter(is.na(Origin.County) == FALSE) %>%
+  # left_join(study.panel, threeStates %>%
+  #             as.data.frame()) %>% # extra parenthesis
+              # select(-geometry), by = c("Origin.Tract" = "GEOID")) %>%
+  arrange(from_id, interval60) %>% 
+  mutate(lagHour = dplyr::lag(delay_minutes,1),
+         lag2Hours = dplyr::lag(delay_minutes,2),
+         lag3Hours = dplyr::lag(delay_minutes,3),
+         lag4Hours = dplyr::lag(delay_minutes,4),
+         lag12Hours = dplyr::lag(delay_minutes,12),
+         lag1day = dplyr::lag(delay_minutes,24)) %>%
+         # # Indigenous Peoples' (Columbus) Day is federally recognized
+         # #  but not an official city holiday of Austin
+         # ## I include it to account for holiday lag
+         # holiday = ifelse(yday(interval60) == 282,1,0)) %>%
+   mutate(day = yday(interval60)) # %>%
+   # mutate(holidayLag = case_when(dplyr::lag(holiday, 1) == 1 ~ "PlusOneDay",
+   #                               dplyr::lag(holiday, 2) == 1 ~ "PlusTwoDays",
+   #                               dplyr::lag(holiday, 3) == 1 ~ "PlusThreeDays",
+   #                               dplyr::lead(holiday, 1) == 1 ~ "MinusOneDay",
+   #                               dplyr::lead(holiday, 2) == 1 ~ "MinusTwoDays",
+   #                               dplyr::lead(holiday, 3) == 1 ~ "MinusThreeDays"),
+   #       holidayLag = ifelse(is.na(holidayLag) == TRUE, 0, holidayLag))
+
+ride.panelA <- apr_w_stations %>%
+  mutate(Trip_Counter = 1) %>%
+  right_join(study.panelA) %>% 
+  # changed fromLon & Lat to fromCountyLon & Lat
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
+  rename(line_length = SHAPE_Length) %>%
+  summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
+  ungroup() %>%
+  filter(is.na(from_id) == FALSE) %>%
+  mutate(week = week(interval60),
+         dotw = wday(interval60, label = TRUE)) %>%
+  # filter(is.na(Origin.County) == FALSE) %>%
+  # left_join(study.panel, threeStates %>%
+  #             as.data.frame()) %>% # extra parenthesis
+              # select(-geometry), by = c("Origin.Tract" = "GEOID")) %>%
+  arrange(from_id, interval60) %>% 
+  mutate(lagHour = dplyr::lag(delay_minutes,1),
+         lag2Hours = dplyr::lag(delay_minutes,2),
+         lag3Hours = dplyr::lag(delay_minutes,3),
+         lag4Hours = dplyr::lag(delay_minutes,4),
+         lag12Hours = dplyr::lag(delay_minutes,12),
+         lag1day = dplyr::lag(delay_minutes,24)) %>%
+         # # Indigenous Peoples' (Columbus) Day is federally recognized
+         # #  but not an official city holiday of Austin
+         # ## I include it to account for holiday lag
+         # holiday = ifelse(yday(interval60) == 282,1,0)) %>%
+   mutate(day = yday(interval60)) # %>%
+   # mutate(holidayLag = case_when(dplyr::lag(holiday, 1) == 1 ~ "PlusOneDay",
+   #                               dplyr::lag(holiday, 2) == 1 ~ "PlusTwoDays",
+   #                               dplyr::lag(holiday, 3) == 1 ~ "PlusThreeDays",
+   #                               dplyr::lead(holiday, 1) == 1 ~ "MinusOneDay",
+   #                               dplyr::lead(holiday, 2) == 1 ~ "MinusTwoDays",
+   #                               dplyr::lead(holiday, 3) == 1 ~ "MinusThreeDays"),
+   #       holidayLag = ifelse(is.na(holidayLag) == TRUE, 0, holidayLag))
+
 ```
 
 
@@ -265,7 +367,6 @@ ggplot()+
         panel.grid.major=element_blank(),
         axis.text=element_blank())
 
-
 ```
 
 # Exploratory Analysis
@@ -276,6 +377,8 @@ The graph below shows a temporal cycle of train trips by NJ Transit. One importa
 
 ```{r plots}
 
+expA = may_w_stations[is.na(may_w_stations$delayed)==T,]$delayed="Amtrak"
+
 ggplot(may_w_stations %>%
          group_by(interval60) %>%
          tally())+
@@ -285,7 +388,28 @@ ggplot(may_w_stations %>%
        y="Number of Trips")+
   plotTheme()+
   coord_cartesian(ylim=c(0,300))
+```
 
+
+NJ Transits trains are often delayed with a striking majority (`r nrow(may_w_stations[may_w_stations$delayed==T,])` of the total `r nrow(may_w_stations[is.na(may_w_stations$delayed)==F,]` in May 2020 alone) not arriving at scheduled times. The severity of these delays varies heavily from a minute or two to even being an hour behind. However, this extreme difference coupled with the sheer number of delays in total emphasizes the need for a reliable method of predicting the impact of a delay alongside its probability. 
+
+```{r Comparing_Delayed_Count}
+ggplot(may_w_stations,mapping=aes(x=delayed))+
+  geom_bar(aes(fill=delayed,show.legend=F))+
+  geom_text(aes(label=..count..),stat="count",color="white",vjust=1.5)+
+  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
+       y="Number of trips",
+       x = "Delayed")+
+  guides(fill=guide_legend(title = "Delayed Train?"))+
+  scale_color_manual(labels=c("False","True","Amtrak"),
+                     values = c(GRAY9,BLUE3,GREEN3) # did nothing?
+                     )+
+  plotTheme()+
+  theme(panel.border = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_blank())
 
 
 
@@ -293,6 +417,8 @@ ggplot(may_w_stations %>%
 ## Delay Count
 
 The value of trains to the region also is rooted in their reliability and people's understanding of such. Out of the 70,000  recorded stops, there were roughly 52,000  of which that were delayed in some capacity. That is 70% of all trips. This graph records all delays regardless of severity, but still means there was higher likelihood or a commuter's trip being delayed than not. It is important to understand some delays recorded were negligible (less than 10 minutes), yet others were almost 2 hours. This information is what riders would find useful before it occurs, especially before arriving to their train station.  
+
+**<ins>Delete this when ready!</ins>**
 
 **Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
 
@@ -336,6 +462,7 @@ ggplot(may_w_stations %>%
   coord_cartesian(xlim=c(0,10))
 ```
 
+
 ```{r probability of delay attempt}
 delayprobability <- datMay2020 %>%
   mutate(delay_prob = delay_minutes * 0)
@@ -351,24 +478,7 @@ summary(delayprobability)
 ### panel 
 
 
-```{r panel}
-length(unique(may_w_stations$interval60)) * length(unique(may_w_stations$from_id))
-
-
-study.panel <- 
-  expand.grid(interval60=unique(may_w_stations$interval60), 
-              from_id = unique(may_w_stations$from_id)) %>%
-  left_join(., may_census %>%
-              # changed fromLon & Lat to fromCountyLon & Lat
-              select(train_id, from_id, from_station, fromCountyLon, fromCountyLat,line,delay_minutes)%>% # Origin.Tract,
-              distinct() %>%
-              group_by(from_id) %>%
-              slice(1))
-
-nrow(study.panel)   
-```
-
-```{r geometry_in_panel}
+```{r geometry_in_panel,eval=F}
 ride.panel <- may_census %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panel) %>% 
@@ -405,8 +515,431 @@ ride.panel <- may_census %>%
 
 ```
 
-### get lines and visualize reliability
+
 
 ### timelapse of reliability (week)
 
+```{r timelapse_beg}
+may_w_stations %>% 
+  # merge(y=census,by.x="Origin.County",by.y="GEOID") %>%
+  group_by(interval60, from_station, geometry.x, from_id) %>% 
+  tally() %>% 
+  rename(departures = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+
+plotCheckoutData <- may_w_stations[yday(may_w_stations$interval60)==138,] %>% 
+  # merge(y=census,by.x="Origin.County",by.y="GEOID") %>% 
+  group_by(interval60, from_station, geometry.x, from_id) %>% 
+  tally() %>% 
+  rename(departures = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+  
+plotReturnData <- may_w_stations[yday(may_w_stations$interval60)==138,] %>% 
+  # merge(y=census,by.x="Destination.County",by.y="GEOID") %>% 
+  group_by(interval60, to_station, geometry.x,to_id) %>% 
+  tally() %>% 
+  rename(arrivals = n) %>%
+  st_as_sf() %>%
+  st_transform(crs = st_crs(nj_trans_stations))
+```
+
+
+```{r depart_animation}
+ggplot()+
+  geom_sf(data = plotCheckoutData,color="white",fill="beige")+
+  transition_null()+
+  geom_sf(data = plotCheckoutData,color="white",aes(fill = departures))+
+  # geom_sf(data = cPoints[cPoints$interval60 %in% plotCheckoutData$interval60,],color=GRAY9)+
+  plotTheme()+
+  # theme(panel.background = "beige",
+        # axis.text = element_blank())+
+  scale_fill_viridis(direction=-1,option="C",discrete=F)+
+  labs(title="Train Trips by Origin County, May, 2020")+
+  transition_manual(interval60)
+  # coord_sf(crs = st_crs(plotCheckoutData), datum = NA)
+
+
+
+```
+
+```{r return_animation}
+
+ggplot()+
+  geom_sf(data = plotReturnData,color="white",fill="beige")+
+  transition_null()+
+  geom_sf(data = plotReturnData,color="white",aes(fill = returns))+
+  # geom_sf(data = rPoints[rPoints$interval60 %in% plotReturnData$interval60,],color=GRAY9)+
+  plotTheme()+
+   # theme(panel.background = "beige",
+        # axis.text = element_blank())+
+  scale_fill_viridis(direction=-1,option="C",discrete=F)+
+  labs(title="Train Trips by Destination County, May, 2020")+
+  transition_manual(interval60)
+
+```
+
+
 ### add in the envelope of time delay (sd in prediction)
+
+```{r model_trial}
+
+ride.Train <- ride.panelA
+ride.Test <- ride.panelM
+
+# ride.Full <- rbind(ride.Train,ride.Test)
+# fullPartition <- createDataPartition(
+#               y = paste(ride.Full$line), 
+#               p = 0.6060172, list = FALSE)
+
+```
+
+```{r five_models }
+# uniqueLine <- ride.Test[ride.Test$line=="SILVER STAR  -R",]
+# i <- sample(1:nrow(uniqueLine),size=1)
+# ride.Train <- rbind(ride.Train,uniqueLine[i,])
+# ride.All <- rbind(ride.Train,ride.Test)
+
+reg1 <- 
+  lm(delay_minutes ~  hour(interval60) + dotw,  data=ride.Train)
+
+reg2 <- 
+  lm(delay_minutes ~  from_id + to_id + dotw,  data=ride.Train) # + line_length,
+
+# reg3 <- 
+#   lm(Trip_Count ~  from_id + hour(interval60) + dotw + Temperature + Precipitation, 
+#      data=ride.Train)
+
+reg4 <- 
+  lm(delay_minutes ~  hour(interval60) + dotw + 
+                   lagHour + lag2Hours +lag3Hours + lag12Hours + lag1day, 
+     data=ride.Train)
+
+reg5 <- 
+  lm(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + # line_length +
+                   lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day, 
+     data=ride.Train)
+```
+
+## Test set Predictions
+
+
+```{r nest_data , warning = FALSE, message = FALSE}
+ride.Test.weekNest <- 
+  ride.Test %>%
+  nest(-week) 
+
+# predict function
+model_pred <- function(dat, fit){
+   pred <- predict(fit, newdata = dat)}
+```
+
+
+When we run our predictions and summarize our results, we are going to have some NA data - recall we have some lag information that will necessarily trip up the model at the margins of the time frame. 
+
+
+
+```{r do_predictions, max.height ='120px'}
+week_predictions <- 
+  ride.Test.weekNest %>% 
+    mutate(ATime_FE = map(.x = data, fit = reg1, .f = model_pred),
+           BOrigin_Dest_FE = map(.x = data, fit = reg2, .f = model_pred),
+           # CTime_Space_FE = map(.x = data, fit = reg3, .f = model_pred),
+           DTime_FE_timeLags = map(.x = data, fit = reg4, .f = model_pred),
+           ETime_Origin_Dest_FE_timeLags = map(.x = data, fit = reg5, .f = model_pred)) %>% 
+    gather(Regression, Prediction, -data, -week) %>%
+    mutate(Observed = map(data, pull, Trip_Count),
+           Absolute_Error = map2(Observed, Prediction,  ~ abs(.x - .y)),
+           MAE = map_dbl(Absolute_Error, mean, na.rm = TRUE),
+           sd_AE = map_dbl(Absolute_Error, sd, na.rm = TRUE))
+
+week_predictions[,c(1,3,7:8)] %>% kable() %>% kable_styling()
+```
+
+## Examining Accuracy and Generalizability
+
+The best models - the lag models, are accurate to less than an average of one ride per hour, at a glance, that's pretty alright for overall accuracy.
+
+```{r plot_errors_by_model }
+week_predictions %>%
+  dplyr::select(week, Regression, MAE) %>%
+  gather(Variable, MAE, -Regression, -week) %>%
+  ggplot(aes(week, MAE,fill = Regression)) + 
+    geom_bar(aes(fill = Regression), position = "dodge", stat="identity",color=BLUE4) +
+  geom_text(aes(label=round(MAE,2),group = Regression),color="white",vjust=1.5, position = position_dodge(width = .9),size=3)+
+    scale_fill_manual(values = palette5) +
+    labs(title = "Mean Absolute Errors by model specification and week") +
+  plotTheme() + theme(axis.text.x = element_blank(),axis.text.y = element_blank())
+
+week_predictions %>%
+  group_by(Regression)%>%
+  summarise(MAE = mean(MAE,na.rm=T))%>%
+  dplyr::select(Regression, MAE) %>%
+  gather(Variable, MAE, -Regression) %>%
+  ggplot(aes(x=Regression,y=MAE)) + 
+    geom_bar(aes(fill = Regression), position = "dodge", stat="identity",color=BLUE4) +
+  geom_text(aes(label=round(MAE,2)),color="white",vjust=1.5)+
+    scale_fill_manual(values = palette5) +
+    labs(title = "Mean Absolute Errors by model specification for May 2023") +
+  plotTheme() + theme(axis.text.x = element_blank(),axis.text.y = element_blank())
+```
+
+##### unchanged code
+
+**Haven't Gotten Here**
+```{r error_vs_actual_timeseries , warning = FALSE, message = FALSE,eval=F}
+week_predictions %>% 
+    mutate(interval60 = map(data, pull, interval60),
+           checkout_kiosk_id = map(data, pull, checkout_kiosk_id)) %>%
+    dplyr::select(interval60, checkout_kiosk_id, Observed, Prediction, Regression) %>%
+    unnest() %>%
+    gather(Variable, Value, -Regression, -interval60, -checkout_kiosk_id) %>%
+    group_by(Regression, Variable, interval60) %>%
+    summarize(Value = sum(Value)) %>%
+    ggplot(aes(interval60, Value, colour=Variable)) + 
+      geom_line(size = 1.1) + 
+      facet_wrap(~Regression, ncol=1) +
+      labs(title = "Predicted/Observed bike share time series", subtitle = "Austin; A test set of X weeks",  x = "Hour", y= "Station Trips") +
+      plotTheme()
+```
+
+
+```{r errors_by_station, warning = FALSE, message = FALSE,eval=F}
+week_predictions %>% 
+    mutate(interval60 = map(data, pull, interval60),
+           checkout_kiosk_id = map(data, pull, checkout_kiosk_id), 
+           from_latitude = map(data, pull, from_latitude), 
+           from_longitude = map(data, pull, from_longitude)) %>%
+    select(interval60, checkout_kiosk_id, from_longitude, from_latitude, Observed, Prediction, Regression) %>%
+    unnest() %>%
+  filter(Regression == "ETime_Space_FE_timeLags_holidayLags") %>%
+  group_by(checkout_kiosk_id, from_longitude, from_latitude) %>%
+  summarize(MAE = mean(abs(Observed-Prediction), na.rm = TRUE))%>%
+ggplot(.)+
+  geom_sf(data = austinCensus, color = "grey", fill = "transparent")+
+  geom_point(aes(x = from_longitude, y = from_latitude, color = MAE), 
+             fill = "transparent", alpha = 0.4)+
+  scale_colour_viridis(direction = 1,
+  discrete = FALSE, option = "H")+
+  ylim(min(dat_census$from_latitude), max(dat_census$from_latitude))+
+  xlim(min(dat_census$from_longitude), max(dat_census$from_longitude))+
+  labs(title="Mean Abs Error, Test Set, Model 5")+
+  mapTheme()
+```
+
+### Generalizability Measured through Temporal K-Fold
+
+**Basic CV here is very accurate (something wrong?). R-squared of 1 with MAE in the nanos or lower.**
+*   provided we use reg5 (lags, origin & destination, and time)
+*   using only reg2 (origin and destination) has higher errors
+```{r cross-validation}
+
+# reg.vars <- c("checkout_kiosk_id", "hour(interval60)", "dotw", "Temperature", "Precipitation",
+#                    "lagHour", "lag2Hours","lag3Hours","lag12Hours", "lag1day", "holidayLag", "holiday")
+# 
+# reg.CV <- crossValidate(
+#   dataset = ride.Train %>% st_as_sf(sf_column_name = "Origin.Tract"),
+#   id = "cvID",                           
+#   dependentVariable = "Trip_Count",
+#   indVariables = reg.vars) %>%
+#     dplyr::select(cvID = checkout_kiosk_id, Trip_Count)
+
+reg.cv <-
+  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw, # + line_length +
+                   # lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day, 
+     data=ride.Train,
+        method = "lm",
+        trControl = trainControl(method="cv",number=100),
+        na.action = na.omit)
+
+reg.cvBest <-
+  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + line_length +
+                   lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day,
+     data=ride.Train,
+        method = "lm",
+        trControl = trainControl(method="cv",number=100),
+        na.action = na.omit)
+
+# ggplot(data = reg.cv$resample[1:nrow(reg.cv$resample),])+
+#   geom_histogram(aes(x=MAE),fill="orange",color="pink",bins=35)+
+#      labs(title = "Distribution of MAE",
+#           subtitle = "k-fold cross-validation; k = 100",
+#           xlab("Mean Absolute Error"))+
+#   coord_cartesian(xlim = c(round(min(reg.cv$resample[3]),-3), round(max(reg.cv$resample[3]),-3)))
+#      plotTheme()
+     
+  ggplot(reg.cv$resample) + 
+    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
+    scale_fill_manual(values = palette5) +
+    labs(title = "100-fold Cross Validation Sample MAEs - Only Day and Stations") +
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
+  
+   ggplot(reg.cvBest$resample) + 
+    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
+    scale_fill_manual(values = palette5) +
+    labs(title = "100-fold Cross Validation Sample MAEs- Complex Model") +
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
+```
+
+## Logistic Model
+
+```{r logistic}
+ride.TrainLog <- ride.Train %>% 
+  mutate(delay10 = ifelse(delay_minutes >=10,1,ifelse(!is.na(delay_minutes),0,NA)))
+
+ride.TestLog <- ride.Test %>% 
+  mutate(delay10 = ifelse(delay_minutes >=10,1,ifelse(!is.na(delay_minutes),0,NA)))
+
+ride.AllLog <- rbind(ride.TrainLog,ride.TestLog)
+
+reg2Model <- glm(delay10 ~ .,
+                  data=as.data.frame(ride.TrainLog %>% 
+                    dplyr::select(from_id,to_id,dotw,delay10) %>%
+                      st_drop_geometry()),
+                  family="binomial" (link="logit"))
+
+reg5Model <- glm(delay10 ~ .,
+                  data=as.data.frame(ride.TrainLog %>% 
+                    dplyr::select(-from_station,-to_station,-delay_minutes,-line_length,
+                                  -Trip_Count,-geometry.x,-week,-day)%>%
+                      st_drop_geometry()),
+                  family="binomial" (link="logit"))
+
+
+stargazer(reg2Model,reg5Model,type="text")
+```
+
+```{r probs}
+
+testProbs2 <- data.frame(Outcome = as.factor(ride.TestLog$delay10),
+                        Probs = predict(reg2Model, ride.TestLog, type= "response"))
+
+testProbs2_full <- data.frame(Outcome = as.factor(ride.AllLog$delay10),
+                        Probs = predict(reg2Model, ride.AllLog, type= "response"))
+
+testProbs5 <- data.frame(Outcome = as.factor(ride.TestLog$delay10),
+                        Probs = predict(reg5Model, ride.TestLog, type= "response"))
+
+
+testProbs5_full <- data.frame(Outcome = as.factor(ride.AllLog$delay10),
+                        Probs = predict(reg5Model, ride.AllLog, type= "response"))
+
+testProbs2 <- 
+  testProbs2 %>%
+  mutate(
+    # for 0.5 threshold
+    predOutcome  = as.factor(ifelse(testProbs2$Probs > 0.5 , 1, 0))
+    )
+
+testProbs2_full <- 
+  testProbs2_full %>%
+  mutate(
+    # for 0.5 threshold
+    predOutcome  = as.factor(ifelse(testProbs2_full$Probs > 0.5 , 1, 0))
+    )
+
+testProbs5 <- 
+  testProbs5 %>%
+  mutate(
+    # for 0.5 threshold
+    predOutcome  = as.factor(ifelse(testProbs5$Probs > 0.5 , 1, 0))
+    )
+
+testProbs5_full <- 
+  testProbs5_full %>%
+  mutate(
+    # for 0.5 threshold
+    predOutcome  = as.factor(ifelse(testProbs5_full$Probs > 0.5 , 1, 0))
+    )
+
+simple <- caret::confusionMatrix(testProbs2$predOutcome, testProbs2$Outcome,
+                       positive = "1")
+
+complex <- caret::confusionMatrix(c(testProbs5$predOutcome), c(testProbs5$Outcome),
+                       positive = "1")
+
+simple$table
+complex$table
+
+```
+
+```{r densities}
+
+AUC2 <- auc(testProbs2$Outcome, testProbs2$Probs)
+
+AUC5 <- auc(testProbs5$Outcome, testProbs5$Probs)
+
+```
+
+
+**Rename these graphs to reference model names in tables above**
+```{r rocs}
+
+ggarrange(nrow=2,
+# kitchen sink densities
+ggplot(testProbs2, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette2) +
+  labs(x = "Program Entry", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome",
+       subtitle = "Regression 2 Model") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none"),
+
+# engineered densities
+ggplot(testProbs5, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette2) +
+  labs(x = "Program Entry", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome",
+       subtitle = "Regression 5 Model") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none"))
+
+
+ggarrange(nrow=2,
+# roc_curve_reg2
+ggplot(testProbs2, aes(d = as.numeric(Outcome), m = Probs)) +
+  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  labs(title = "ROC Curve - Reg2"),
+
+# roc_curve_reg5
+ggplot(testProbs5, aes(d = as.numeric(Outcome), m = Probs)) +
+  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  labs(title = "ROC Curve - Reg5")
+)
+
+```
+
+```{r pred_mean}
+r5p <- lapply(week_predictions[week_predictions$Regression=="ETime_Origin_Dest_FE_timeLags",]$Prediction,mean,na.rm=T)[c(1:3)]
+
+r5o <- lapply(week_predictions[week_predictions$Regression=="ETime_Origin_Dest_FE_timeLags",]$Observed,mean,na.rm=T)[c(1:3)]
+
+r5meanP <- mean(c(r5p[[1]],r5p[[2]],r5p[[3]]))
+r5meanO <- mean(c(r5o[[1]],r5o[[2]],r5o[[3]]))
+
+r2p <- lapply(week_predictions[week_predictions$Regression=="BOrigin_Dest_FE",]$Prediction,mean,na.rm=T)[c(1:3)]
+r2o <- lapply(week_predictions[week_predictions$Regression=="BOrigin_Dest_FE",]$Observed,mean,na.rm=T)[c(1:3)]
+
+r2meanP <- mean(c(r2p[[1]],r2p[[2]],r2p[[3]]))
+r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
+
+
+## numbers for below threshold (10 minutes) is larger than valid row count, will stop working for now
+
+# past_thresh <- nrow(ride.TestLog[ride.TestLog$delay10==1,])
+# below_thresh <- nrow(ride.TestLog[ride.TestLog$delay10==0,])
+# # print(past_thresh+below_thresh==nrow(ride.TestLog[is.na(ride.TestLog$delay10)==F,]))
+# below_thresh/nrow(ride.TestLog[is.na(ride.TestLog$delay10)==F,])
+
+```
+
+The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
