@@ -440,7 +440,7 @@ ggplot(may_w_stations %>%
 ```
 
 
-```{r probability of delay attempt}
+```{r probability of delay attempt, eval=F,include=F}
 delayprobability <- datMay2020 %>%
   mutate(delay_prob = delay_minutes * 0)
 
@@ -492,7 +492,9 @@ ride.panel <- may_census %>%
 
 
 
-### timelapse of reliability (week)
+### Station Depature Tracking
+
+The table provides a comprehensive list of all stations and the amount of departures they have every 60 minutes, we use these amounts to measure business and tracking individuals trains in the model, predicting if a delay on one station will consequently cause additional delays later in the sequence. 
 
 ```{r timelapse_beg}
 may_w_stations %>% 
@@ -520,6 +522,7 @@ plotReturnData <- may_w_stations[yday(may_w_stations$interval60)==138,] %>%
   st_transform(crs = st_crs(nj_trans_stations))
 ```
 
+### Timelapse 1 
 
 ```{r depart_animation}
 ggplot()+
@@ -538,6 +541,9 @@ ggplot()+
 
 
 ```
+
+
+### Timelapse 2
 
 ```{r return_animation}
 
@@ -558,7 +564,15 @@ ggplot()+
 
 ### Predicting Delay Time and Significance
 
-As data about the NJ Transit train infrastructure and specific trips were analyzed alongside introducing relevant outside information, the decision for two predictive models--one linear model and a binomial logistic regression model--was made followed by their constituent features.
+As data about the NJ Transit train infrastructure and specific trips were analyzed alongside introducing relevant outside information, the decision for two predictive models--one linear model and a binomial logistic regression model--was made followed by their constituent features. The aim of our two models is to predict the length of the delays and the probability of that delay occurring. Train riders desire information regarding delays when it can alter trip plans and is a likely scenario. For our metrics, we are looking at delays that are greater than 10 minutes and have a 50% chance or higher of being delayed. For our approach, we created multiple linear models that would assess features such as the time of the delay, location, temporal lags, and combinations of such.
+
+Model A focused on previous delays, day of the week, and measuring time lags at  60 minute intervals. 
+
+Model B focused on station location and day of the week.
+
+Model C focused on day of the week and time lags of 1, 2, 3, 12, and 24 hour intervals. 
+
+Model D incorporated Models A,B, and C into one. 
 
 *   <ins>**The Linear Model**</ins>
   -   why, number, features included(?)
@@ -620,7 +634,7 @@ model_pred <- function(dat, fit){
    pred <- predict(fit, newdata = dat)}
 ```
 
-
+Our models varied in their absolute errors between one another but stayed consistent throughout each week. Model B, having an emphasis on location (specifically Origin Destination) had the lowest error among all weeks, as our most accurate model. However, Model A, emphasizing lengths in previous delays, had the lowest standard deviation in its errors, being our most precise model. Both Models A (ATime_FE) and B (B_OriginDest_FE) had the most ideal results between standard deviation and mean absolute error, respectively. 
 
 ```{r do_predictions, max.height ='120px'}
 week_predictions <- 
@@ -641,7 +655,7 @@ week_predictions[,c(1,3,7:8)] %>% kable() %>% kable_styling()
 
 ## Examining Accuracy and Generalizability
 
-The best models - the lag models, are accurate to less than an average of one ride per hour, at a glance, that's pretty alright for overall accuracy.
+Throughout the weeks, each model was consistent in their errors and reporting. Model A has the highest absolute error but was consistent throughout each week. Model B was the most accurate, and Models C and D were a middle-ground comparatively to A and B, but fluctuated slightly each week. For the purposes of a train timing, Model B appears to be the best model. 
 
 ```{r plot_errors_by_model }
 week_predictions %>%
@@ -712,9 +726,9 @@ ggplot(.)+
 
 ### Generalizability Measured through Temporal K-Fold
 
-**Basic CV here is very accurate (something wrong?). R-squared of 1 with MAE in the nanos or lower.**
-*   provided we use reg5 (lags, origin & destination, and time)
-*   using only reg2 (origin and destination) has higher errors
+To ensure our model's integrity we conducted cross-validations among Model B and Model D. We used these two models because Model B was the most accurate while Model D was most generalized, incorporating all other models into its regression. Model B  has a consistently low absolute error with a few notable spikes. These are okay because we see a majority of the samples have a consistent range, verifying the model's accuracy. Model D's cross validations has more outliers across the samples which was reflected in previous graphs. Model D does not have the same level of reliability because of its larger number of spikes.
+
+
 ```{r cross-validation}
 
 # reg.vars <- c("checkout_kiosk_id", "hour(interval60)", "dotw", "Temperature", "Precipitation",
@@ -754,17 +768,23 @@ reg.cvBest <-
   ggplot(reg.cv$resample) + 
     geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs - Only Day and Stations") +
+    labs(title = "100-fold Cross Validation Sample MAEs - Model B") +
   plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
   
    ggplot(reg.cvBest$resample) + 
     geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs- Complex Model") +
+    labs(title = "100-fold Cross Validation Sample MAEs - Model D") +
   plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
 ```
 
-## Logistic Model
+## Logistic Model Analysis 
+
+The purpose of the Logistical Model is to predict the probability of each delay occurring. Our dependent variable (delay of 10 minutes), has been compared to by all potential independent variables and features where we find which are most significant in determining the likelihood of the delay occurring. The logistical model is meant to compliment the linear regression model in that while the consequences of delays at specific stations vary, there is different likelihoods of each delay occurring because of the circumstances at each stations. An example can include stations further from major cities may have larger delays but a lower probability of them occurring. 
+
+Similarly to our Regression Model approach, we created two logistical models we classified as Simple and Complex. 
+
+The simple model focuses only on location and if the delays was 10 minutes or not. The complex model factors in everything given within the dataset including the delay length, location, distance between stations, etc. 
 
 ```{r logistic}
 ride.TrainLog <- ride.Train %>% 
@@ -791,6 +811,11 @@ reg5Model <- glm(delay10 ~ .,
 
 stargazer(reg2Model,reg5Model,type="text")
 ```
+
+
+### Outcomes
+
+The two tables show the difference between what the simple and complex model predicted. A 0 represents no delay while a 1 represents a delay occurring. Both models have a 50% threshold where if the chance of a delay is 50% or greater, the model assumes the delay is occuring. 
 
 ```{r probs}
 
