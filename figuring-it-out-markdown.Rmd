@@ -834,7 +834,7 @@ stargazer(reg2Model,reg5Model,type="text")
 
 ### Outcomes
 
-The two tables show the difference between what the simple and complex model predicted. A 0 represents no delay while a 1 represents a delay occurring. Both models have a 50% threshold where if the chance of a delay is 50% or greater, the model assumes the delay is occuring. 
+The two tables show the difference between what the simple and complex model predicted. A 0 represents no delay while a 1 represents a delay occurring. Both models have a 50% threshold where if the chance of a delay is 50% or greater, the model assumes the delay is occurring. 
 
 ```{r probs}
 
