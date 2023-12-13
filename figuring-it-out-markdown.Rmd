@@ -558,10 +558,8 @@ ggplot()+
 
 ### Timelapse 2
 
-```{r return_animation}
-=======
-```{r return_animation,eval=F,include=F}
->>>>>>> 97bf75e09dcc79ad761d71adbf2569f16d276655
+```{r return_animation, eval=F,include=F}
+
 
 ggplot()+
   geom_sf(data = plotReturnData,color="white",fill="beige")+
