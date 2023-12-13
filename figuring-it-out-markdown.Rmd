@@ -13,7 +13,7 @@ output:
 
 Trains are a timeless mode of transportation that has revolutionized the world. As we aim to improve their reliability and accessibility, it is crucial to understand their performance records and allow riders to stay informed on travel updates, train reliability, and enable them to plan their trips accordingly. Hence, we have dedicated this brief to developing a two-part prediction model to forecast train delays. 
 
-This analysis serves as an experimental use-case that can be replicated to other transit regions in the United States and further enable inter-state travels to efficiently utilize train networks. 
+This analysis serves as an experimental use-case that can be replicated to other transit regions in the United States and further enable inter-state travel in order to efficiently utilize train networks. 
 
 ```{r clear_environment, include=F, results = 'hide'}
 rm(list=ls())
@@ -178,8 +178,8 @@ apr_w_stations <- merge(x= nj_trans_stations,y=datApr2020,by.x="STATION_ID",by.y
 rm(datMay2020,datApr2020)
 ```
 
-<<<<<<< Updated upstream
-Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and Pennsylvania area. The data provided here us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel. 
+
+Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and southeast Pennsylvania area. The data here provided us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel as seen with [recent articles](https://www.northjersey.com/story/news/transportation/2023/11/01/nj-transit-bus-ridership-bounced-back-covid/71394013007/) detailing NJ Transit approaching pre-COVID levels while other areas have struggled to reclaim riders. 
 
 ```{r wrangling, results='hide'}
 
@@ -230,7 +230,7 @@ rm(census)
 
 # Means of Transport 
 
-This maps indicates the importance of using NYC and NJ Transit as our initial case-study area for our model. Commuting by train is underused in most areas of the country especially when distant from any major cities. New Jersey has a special case of being between two major metropolitan areas, New York and Philadelphia. This location makes the State optimal for long-distance train studies. Even when the majority of New York State and Pennsylvania are more blue, showing lower numbers of commuters, New Jersey's roughly purple palette proves the importance of trains in the regional economy. 
+This maps indicates the importance of using NYC and NJ Transit as our initial case-study area for our model. Commuting by train is underused in most areas of the country especially when distant from any major cities. New Jersey has a special case of being between two major metropolitan areas, New York and Philadelphia. This location makes the state optimal for long-distance train studies. Even when the majority of New York State and Pennsylvania have lower numbers of commuters, denoted by blue, New Jersey's roughly purple palette proves the importance of trains in the regional economy. 
 
 ```{r ThreeState Commuters by Rail}
 
@@ -391,36 +391,13 @@ ggplot(may_w_stations %>%
 ```
 
 
-NJ Transits trains are often delayed with a striking majority (`r nrow(may_w_stations[may_w_stations$delayed==T,])` of the total `r nrow(may_w_stations[is.na(may_w_stations$delayed)==F,]` in May 2020 alone) not arriving at scheduled times. The severity of these delays varies heavily from a minute or two to even being an hour behind. However, this extreme difference coupled with the sheer number of delays in total emphasizes the need for a reliable method of predicting the impact of a delay alongside its probability. 
-
-```{r Comparing_Delayed_Count}
-ggplot(may_w_stations,mapping=aes(x=delayed))+
-  geom_bar(aes(fill=delayed,show.legend=F))+
-  geom_text(aes(label=..count..),stat="count",color="white",vjust=1.5)+
-  labs(title="Delayed Train Trip Density in NYC Area, May, 2020",
-       y="Number of trips",
-       x = "Delayed")+
-  guides(fill=guide_legend(title = "Delayed Train?"))+
-  scale_color_manual(labels=c("False","True","Amtrak"),
-                     values = c(GRAY9,BLUE3,GREEN3) # did nothing?
-                     )+
-  plotTheme()+
-  theme(panel.border = element_blank(),
-        panel.background = element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.text.y = element_blank())
 
 
-
-```
 ## Delay Count
 
-The value of trains to the region also is rooted in their reliability and people's understanding of such. Out of the 70,000  recorded stops, there were roughly 52,000  of which that were delayed in some capacity. That is 70% of all trips. This graph records all delays regardless of severity, but still means there was higher likelihood or a commuter's trip being delayed than not. It is important to understand some delays recorded were negligible (less than 10 minutes), yet others were almost 2 hours. This information is what riders would find useful before it occurs, especially before arriving to their train station.  
+The value of trains to the region also is rooted in their reliability and people's understanding of such. Recorded NJ Transit train trips in May 2020 shows that `r nrow(may_w_stations[may_w_stations$delayed==T,])` of the total `r nrow(may_w_stations[is.na(may_w_stations$delayed)==F,]` trips did not arrive at scheduled times--roughly 70% of all trips. This graph records all delays regardless of severity, but still means there was a higher likelihood of a commuter's trip being delayed than not. It is important to understand some delays recorded were negligible (less than 10 minutes), yet others were almost 2 hours. Distinguishing between negligible delays is what riders would find useful before they occurs, emphasizing the need for a reliable method of predicting the impact of a delay alongside its probability.  
 
-**<ins>Delete this when ready!</ins>**
 
-**Note: All `r length(datMay2020[datMay2020$type=="Amtrak",]$interval60)` of Amtrak's records in the full May data have no scheduled time and thereby no interval. The merged data has `r length(may_w_stations[may_w_stations$type=="Amtrak",]$interval60)` such NA records**
 
 ```{r bar plot}
 
@@ -448,7 +425,7 @@ ggplot(may_w_stations,mapping=aes(x=delayed))+
 
 ## Tracking Station Business 
 
-Graph below shows that majority of stations each day only saw one or two train stops every hour. This frequency seen at majority of stations indicates a level of importance the timing these trains have in terms of efficiency. Large delays for stops that do not have multiple trains can result in riders having few to no alternative route options and must succumb to the lateness brought by delays. Places that see more trains are also jeopardized by delays for different reasons, delays, if large enough, can create rail congestion and in turn cause delays for other trains that would have otherwise been timely. 
+The graph below shows that the majority of stations each day only saw one or two train stops every hour. This frequency seen at majority of stations indicates a level of importance the timing these trains have in terms of efficiency. Large delays for stops that do not have multiple trains can result in riders having few to no alternative route options and succumbing to the lateness brought by delays. Places that see more trains are also jeopardized by delays for different reasons. If large enough, delays can create rail congestion and in turn propagate the delay to other trains that would have otherwise been timely. 
 
 ```{r from_station}
 ggplot(may_w_stations %>%
@@ -475,10 +452,8 @@ summary(delayprobability)
 ```
 
 
-### panel 
 
-
-```{r geometry_in_panel,eval=F}
+```{r geometry_in_panel,eval=F,include=F}
 ride.panel <- may_census %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panel) %>% 
@@ -581,7 +556,17 @@ ggplot()+
 ```
 
 
-### add in the envelope of time delay (sd in prediction)
+### Predicting Delay Time and Significance
+
+As data about the NJ Transit train infrastructure and specific trips were analyzed alongside introducing relevant outside information, the decision for two predictive models--one linear model and a binomial logistic regression model--was made followed by their constituent features.
+
+*   <ins>**The Linear Model**</ins>
+  -   why, number, features included(?)
+*   <ins>**The Logistic Model**</ins>
+  -   why, how linear model focused it, input(?)
+*   <ins>**Features**</ins>
+  -   list, why
+
 
 ```{r model_trial}
 
@@ -636,9 +621,6 @@ model_pred <- function(dat, fit){
 ```
 
 
-When we run our predictions and summarize our results, we are going to have some NA data - recall we have some lag information that will necessarily trip up the model at the margins of the time frame. 
-
-
 
 ```{r do_predictions, max.height ='120px'}
 week_predictions <- 
@@ -646,8 +628,8 @@ week_predictions <-
     mutate(ATime_FE = map(.x = data, fit = reg1, .f = model_pred),
            BOrigin_Dest_FE = map(.x = data, fit = reg2, .f = model_pred),
            # CTime_Space_FE = map(.x = data, fit = reg3, .f = model_pred),
-           DTime_FE_timeLags = map(.x = data, fit = reg4, .f = model_pred),
-           ETime_Origin_Dest_FE_timeLags = map(.x = data, fit = reg5, .f = model_pred)) %>% 
+           CTime_FE_timeLags = map(.x = data, fit = reg4, .f = model_pred),
+           DTime_Origin_Dest_FE_timeLags = map(.x = data, fit = reg5, .f = model_pred)) %>% 
     gather(Regression, Prediction, -data, -week) %>%
     mutate(Observed = map(data, pull, Trip_Count),
            Absolute_Error = map2(Observed, Prediction,  ~ abs(.x - .y)),
@@ -884,7 +866,7 @@ ggplot(testProbs2, aes(x = Probs, fill = as.factor(Outcome))) +
   scale_fill_manual(values = palette2) +
   labs(x = "Program Entry", y = "Density of probabilities",
        title = "Distribution of predicted probabilities by observed outcome",
-       subtitle = "Regression 2 Model") +
+       subtitle = "Model B") +
   theme(strip.text.x = element_text(size = 18),
         legend.position = "none"),
 
@@ -895,7 +877,7 @@ ggplot(testProbs5, aes(x = Probs, fill = as.factor(Outcome))) +
   scale_fill_manual(values = palette2) +
   labs(x = "Program Entry", y = "Density of probabilities",
        title = "Distribution of predicted probabilities by observed outcome",
-       subtitle = "Regression 5 Model") +
+       subtitle = "Model D") +
   theme(strip.text.x = element_text(size = 18),
         legend.position = "none"))
 
@@ -919,9 +901,9 @@ ggplot(testProbs5, aes(d = as.numeric(Outcome), m = Probs)) +
 ```
 
 ```{r pred_mean}
-r5p <- lapply(week_predictions[week_predictions$Regression=="ETime_Origin_Dest_FE_timeLags",]$Prediction,mean,na.rm=T)[c(1:3)]
+r5p <- lapply(week_predictions[week_predictions$Regression=="DTime_Origin_Dest_FE_timeLags",]$Prediction,mean,na.rm=T)[c(1:3)]
 
-r5o <- lapply(week_predictions[week_predictions$Regression=="ETime_Origin_Dest_FE_timeLags",]$Observed,mean,na.rm=T)[c(1:3)]
+r5o <- lapply(week_predictions[week_predictions$Regression=="DTime_Origin_Dest_FE_timeLags",]$Observed,mean,na.rm=T)[c(1:3)]
 
 r5meanP <- mean(c(r5p[[1]],r5p[[2]],r5p[[3]]))
 r5meanO <- mean(c(r5o[[1]],r5o[[2]],r5o[[3]]))
