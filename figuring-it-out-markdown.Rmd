@@ -340,9 +340,10 @@ ggplot(may_w_stations %>%
 delayprobability <- datMay2020 %>%
   mutate(delay_prob = delay_minutes * 0)
 
-delayprobability <- glm(delay_prob ~ .,
-                     data = delayprobability %>% select(date, train_id, stop_sequence, from_id, to_id, delay_minutes, week),
-                     family="binomial" (link="logit"))
+delayprobability <- glm(delay_prob ~ date + train_id + stop_sequence + from_id + to_id + week, data = delayprobability, family="binomial")
+summary(delayprobability)
+
+
 
 ```
 
