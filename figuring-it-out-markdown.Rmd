@@ -1,5 +1,5 @@
 ---
-title: "TrainTracker: Predicting New Jersey Transit Delays & Unifying Transit Information"
+title: "TrainTracker: Predicting New Jersey Transit Delays"
 author: "Trevor Kapuvari & Timothy Oliver"
 date: "15 December 2023"
 output: 
@@ -432,7 +432,7 @@ ggplot(may_w_stations,mapping=aes(x=delayed))+
 
 ## Tracking Station Business 
 
-The graph below shows that the majority of stations each day only saw one or two train stops every hour. This frequency seen at majority of stations indicates a level of importance the timing these trains have in terms of efficiency. Large delays for stops that do not have multiple trains can result in riders having few to no alternative route options and succumbing to the lateness brought by delays. Places that see more trains are also jeopardized by delays for different reasons. If large enough, delays can create rail congestion and in turn propagate the delay to other trains that would have otherwise been timely. 
+The graph below shows that the majority of stations each day only saw one or two trains every hour. This frequency seen at majority of stations indicates a level of importance the timing these trains have in terms of efficiency. Large delays for stops that do not have multiple trains can result in riders having few to no alternative route options and succumbing to the lateness brought by delays. Places that see more trains are also jeopardized by delays for different reasons. If large enough, delays can create rail congestion and in turn propagate the delay to other trains that would have otherwise been timely. 
 
 ```{r from_station}
 ggplot(may_w_stations %>%
