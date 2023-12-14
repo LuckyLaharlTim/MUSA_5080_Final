@@ -234,7 +234,7 @@ nj = census%>%filter(grepl("New Jersey",NAME))
 rm(census)
 ```
 
-## Means of Transport 
+# Means of Transport 
 
 This maps indicates the importance of using NYC and NJ Transit as our initial case-study area for our model. Commuting by train is underused in most areas of the country especially when distant from any major cities. New Jersey has a special case of being between two major metropolitan areas, New York and Philadelphia. This location makes the state optimal for long-distance train studies. Even when the majority of New York State and Pennsylvania have lower numbers of commuters, denoted by blue, New Jersey's roughly purple palette proves the importance of trains in the regional economy. 
 
@@ -286,7 +286,7 @@ ride.panelM <- may_w_stations %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panelM) %>% 
   # changed fromLon & Lat to fromCountyLon & Lat
-  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length,status,from_rail_service) %>%
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
   rename(line_length = SHAPE_Length) %>%
   summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
   ungroup() %>%
@@ -321,7 +321,7 @@ ride.panelA <- apr_w_stations %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panelA) %>% 
   # changed fromLon & Lat to fromCountyLon & Lat
-  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length,status,from_rail_service) %>%
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
   rename(line_length = SHAPE_Length) %>%
   summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
   ungroup() %>%
@@ -355,7 +355,7 @@ ride.panelA <- apr_w_stations %>%
 ```
 
 
-## New Jersey Transit Map
+# New Jersey Transit Map
 
 The map below depicts New Jersey Transit lines that we predicted delays for in the model. Predictions within the model ranged between 1 minute to almost 2 hours, for the purpose of the analysis and due to available data, we are focusing our attention of these lines. 
 
@@ -445,6 +445,21 @@ ggplot(may_w_stations %>%
 ```
 
 
+<<<<<<< HEAD
+```{r probability of delay attempt, eval=F,include=F}
+delayprobability <- datMay2020 %>%
+  mutate(delay_prob = delay_minutes * 0)
+
+delayprobability <- glm(delay_prob ~ date + train_id + stop_sequence + from_id + to_id + week, data = delayprobability, family="binomial")
+summary(delayprobability)
+
+
+
+```
+
+
+=======
+>>>>>>> 97bf75e09dcc79ad761d71adbf2569f16d276655
 
 ```{r geometry_in_panel,eval=F,include=F}
 ride.panel <- may_census %>%
@@ -485,9 +500,13 @@ ride.panel <- may_census %>%
 
 
 
+<<<<<<< HEAD
 ### Station Depature Tracking
 
 The table provides a comprehensive list of all stations and the amount of departures they have every 60 minutes, we use these amounts to measure business and tracking individuals trains in the model, predicting if a delay on one station will consequently cause additional delays later in the sequence. 
+=======
+### timelapse of reliability (week) --REMOVE HEADER
+>>>>>>> 97bf75e09dcc79ad761d71adbf2569f16d276655
 
 ```{r timelapse_beg,eval=F,include=F}
 may_w_stations %>% 
@@ -535,6 +554,7 @@ ggplot()+
 
 ```
 
+<<<<<<< HEAD
 
 ### Timelapse 2
 
@@ -556,7 +576,7 @@ ggplot()+
 ```
 
 
-# Predicting Delay Time and Significance
+### Predicting Delay Time and Significance
 
 As data about the NJ Transit train infrastructure and specific trips were analyzed alongside introducing relevant outside information, the decision for two predictive models--one linear model and a binomial logistic regression model--was made followed by their constituent features. The aim of our two models is to predict the length of the delays and the probability of that delay occurring. Train riders desire information regarding delays when it can alter trip plans and is a likely scenario. For our metrics, we are looking at delays that are greater than 10 minutes and have a 50% chance or higher of being delayed. For our approach, we created multiple linear models that would assess features such as the time of the delay, location, temporal lags, and combinations of such.
 
@@ -569,15 +589,12 @@ Model C focused on day of the week and time lags of 1, 2, 3, 12, and 24 hour int
 Model D incorporated Models A,B, and C into one. 
 
 *   <ins>**The Linear Model**</ins>
-
-As stated before, the severity of a delay is important in helping riders make transportation decisions and preemptively evaluating the reliability of a specific NJ Transit train trip. For that reason, the linear model built hear will train on data for a month before the time period it is being used to predict for. Predictions on the number of minutes a specific trip is delayed are the main aim of this model with four different regression models being compared to determine the best combination of temporal and NJ Transit features to include.
-
-We limited the inclusion of spatial data and features separated by areal units like spatial units with the belief that the individual rider and demographics would not have a direct effect on train timeliness with the exception of a major disruption or being in a position to enact some change in NJ Transit's policy. Likewise, the brief window of data our model trains on led us to preclude weather data with its minimal immediate effect on speed or boardings and alightments. Any additional features were mainly derived from the existing collection of data such as the scheduled datetime for a trip, the start and stop station, and the line the trip would run on. Time based lags for given frames of time like an hour or day before were the set of newly introduced features.
-    
-    
+  -   why, number, features included(?)
+  -   The choice to train the data on the month of April 
 *   <ins>**The Logistic Model**</ins>
-
-This set of predictive models is incorporated into our user or rider-centric use case by notifying riders of significant delays in the TrainTracker application. Provided that a 5-minute delayed train is still delayed, we use a logistic model with the same features as the linear model to anticipate if a given trip is likely to be significant. We chose any delay of 10 minutes or more to be worthy of a notification to users alongside recommendation to request more detailed prediction in addition to the standard prediction done at the beginning of each week for all trips. That is to say that this model predicts if any trip will have a predicted delay of 10 minutes or more.
+  -   why, how linear model focused it, input(?)
+*   <ins>**Features**</ins>
+  -   list, why
 
 
 ```{r model_trial}
@@ -591,25 +608,6 @@ ride.Test <- ride.panelM
 #               p = 0.6060172, list = FALSE)
 
 ```
-
-The regression models created from the April 2020 training data include ...
-
-*   *Model A - Simplest*
-
-  -   This model includes the minimum of features. Namely, the hour of the trip's scheduled arrival time and the day of the week (categorical).
-
-*   *Model B - Simple*
-
-  -   This model includes the origin and destination station ideas alongside the day of the week only. Given the somewhat consistent number of trips across hours of the day as seen in the `Train Trips in NYC Area` line graph, we test the idea that the hour of the day is extraneous temporal data accounted for with the day of the week.
-
-*   *Model C - Temporal*
-
- -   This model includes the trip hour and day of the week alongside multiple time lags. Specifically, time lags for one hour, two hours, three hours, 12 hours, and 1 day are included providing only temporal predictors in this model. 
-
-*   *Model D - Complex*
-
- -   This model includes the previously mentioned time lags and trip node IDs in addition to categorical data on the trip status--if it has departed or if its scheduled arrival time is estimated. With the potential for train unique train lines to have no data within specific months, the length of the line the trip uses is also added to incorporate consideration of the train line.
-
 
 ```{r five_models }
 # uniqueLine <- ride.Test[ride.Test$line=="SILVER STAR  -R",]
@@ -633,14 +631,12 @@ reg4 <-
      data=ride.Train)
 
 reg5 <- 
-  lm(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + status + line_length +
+  lm(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + # line_length +
                    lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day, 
      data=ride.Train)
 ```
 
-## Examining Accuracy and Generalizability
-
-### Linear Model Results
+## Test set Predictions
 
 
 ```{r nest_data , warning = FALSE, message = FALSE}
@@ -669,15 +665,16 @@ week_predictions <-
            MAE = map_dbl(Absolute_Error, mean, na.rm = TRUE),
            sd_AE = map_dbl(Absolute_Error, sd, na.rm = TRUE))
 
-week_predictions[,c(1,3,7:8)] %>% filter(!is.na(week)) %>% kable() %>% kable_styling() %>%
-  row_spec(c(1:3), color = "antiquewhite", background = GRAY2) %>%
-    row_spec(c(4:6), color = "antiquewhite", background = GRAY3) %>%
-    row_spec(c(7:9), color = "antiquewhite", background = GRAY4) %>%
-    row_spec(c(10:12), color = "antiquewhite", background = GRAY5)
+week_predictions[,c(1,3,7:8)] %>% kable() %>% kable_styling()
 ```
 
+## Examining Accuracy and Generalizability
 
-Throughout the weeks, each model was consistent in their errors and reporting. Model A has the highest absolute error but was consistent throughout each week. Model B was the most accurate, and Models C and D were a middle-ground comparatively to A and B, but fluctuated slightly each week. For the purposes of a train timing, Model B appears to be the best model on the specific May 2020 testing set, the simple model (B) performs the best with consistently low error of 1 minute across each week and across the overall month. The complex model (D) performs second-best in the test data ranging from 1-2 minute errors in predictions in each week or about 2 minutes and 10 seconds for the month of May 2020. The bar charts below denote the MAE or average error of the predicted delay time in minutes by each regression model tested. 
+<<<<<<< HEAD
+Throughout the weeks, each model was consistent in their errors and reporting. Model A has the highest absolute error but was consistent throughout each week. Model B was the most accurate, and Models C and D were a middle-ground comparatively to A and B, but fluctuated slightly each week. For the purposes of a train timing, Model B appears to be the best model. 
+=======
+The best models are models B and D, On the specific May 2020 testing set, the simple model (B) performs the best with consistently low error of 1 minute across each week and across the overall month. The complex model (D) performs second-best in the test data ranging from 1-2 minute errors in predictions in each week or about 2 minutes and 10 seconds for the month of May 2020. The bar charts below denote the MAE or average error of the predicted delay time in minutes by each regression model tested. 
+>>>>>>> 97bf75e09dcc79ad761d71adbf2569f16d276655
 
 ```{r plot_errors_by_model }
 week_predictions %>%
@@ -703,11 +700,52 @@ week_predictions %>%
   plotTheme() + theme(axis.text.x = element_blank(),axis.text.y = element_blank())
 ```
 
+##### unchanged code
+
+**Haven't Gotten Here**
+```{r error_vs_actual_timeseries , warning = FALSE, message = FALSE,eval=F}
+week_predictions %>% 
+    mutate(interval60 = map(data, pull, interval60),
+           checkout_kiosk_id = map(data, pull, checkout_kiosk_id)) %>%
+    dplyr::select(interval60, checkout_kiosk_id, Observed, Prediction, Regression) %>%
+    unnest() %>%
+    gather(Variable, Value, -Regression, -interval60, -checkout_kiosk_id) %>%
+    group_by(Regression, Variable, interval60) %>%
+    summarize(Value = sum(Value)) %>%
+    ggplot(aes(interval60, Value, colour=Variable)) + 
+      geom_line(size = 1.1) + 
+      facet_wrap(~Regression, ncol=1) +
+      labs(title = "Predicted/Observed bike share time series", subtitle = "Austin; A test set of X weeks",  x = "Hour", y= "Station Trips") +
+      plotTheme()
+```
+
+
+```{r errors_by_station, warning = FALSE, message = FALSE,eval=F}
+week_predictions %>% 
+    mutate(interval60 = map(data, pull, interval60),
+           checkout_kiosk_id = map(data, pull, checkout_kiosk_id), 
+           from_latitude = map(data, pull, from_latitude), 
+           from_longitude = map(data, pull, from_longitude)) %>%
+    select(interval60, checkout_kiosk_id, from_longitude, from_latitude, Observed, Prediction, Regression) %>%
+    unnest() %>%
+  filter(Regression == "ETime_Space_FE_timeLags_holidayLags") %>%
+  group_by(checkout_kiosk_id, from_longitude, from_latitude) %>%
+  summarize(MAE = mean(abs(Observed-Prediction), na.rm = TRUE))%>%
+ggplot(.)+
+  geom_sf(data = austinCensus, color = "grey", fill = "transparent")+
+  geom_point(aes(x = from_longitude, y = from_latitude, color = MAE), 
+             fill = "transparent", alpha = 0.4)+
+  scale_colour_viridis(direction = 1,
+  discrete = FALSE, option = "H")+
+  ylim(min(dat_census$from_latitude), max(dat_census$from_latitude))+
+  xlim(min(dat_census$from_longitude), max(dat_census$from_longitude))+
+  labs(title="Mean Abs Error, Test Set, Model 5")+
+  mapTheme()
+```
 
 ### Generalizability Measured through Temporal K-Fold
 
-
-To ensure our model's integrity we conducted 100 k-fold cross-validations among Model B and Model D. We used these two models because Model B was the most accurate while Model D was most generalized, incorporating all other models into its regression. For the cross validation, Model D has a consistently low absolute error with no error exceeding a very small fraction of a second. These suggest model D's accuracy for individual trips. Model B's cross validations has more outliers across the samples which was which is at odds with its performance shown in previous graphs. These cross validation results encourage tests with train data from other months to truly determine the best model.
+To ensure our model's integrity we conducted cross-validations among Model B and Model D. We used these two models because Model B was the most accurate while Model D was most generalized, incorporating all other models into its regression. Model B  has a consistently low absolute error with a few notable spikes. These are okay because we see a majority of the samples have a consistent range, verifying the model's accuracy. Model D's cross validations has more outliers across the samples which was reflected in previous graphs. Model D does not have the same level of reliability because of its larger number of spikes.
 
 
 ```{r cross-validation}
@@ -731,7 +769,7 @@ reg.cv <-
         na.action = na.omit)
 
 reg.cvBest <-
-  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + status + line_length +
+  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + line_length +
                    lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day,
      data=ride.Train,
         method = "lm",
@@ -746,23 +784,17 @@ reg.cvBest <-
 #   coord_cartesian(xlim = c(round(min(reg.cv$resample[3]),-3), round(max(reg.cv$resample[3]),-3)))
 #      plotTheme()
      
-options(scipen=8,digits=2)
-
-  ggplot(reg.cv$resample,mapping=aes(x=MAE)) + 
-    geom_histogram(fill = "lightgreen",color=BLUE4) +
+  ggplot(reg.cv$resample) + 
+    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs - Only Day and Stations") +
-  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (min)")
-
+    labs(title = "100-fold Cross Validation Sample MAEs - Model B") +
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
   
-   ggplot(reg.cvBest$resample,mapping=aes(x=(MAE %% 1 *60))) + 
-    geom_histogram(fill = "lightgreen",color=BLUE4,bins=5) +
+   ggplot(reg.cvBest$resample) + 
+    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs - Complex Model") +
-  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (s)")
-   
-options(scipent=999)
-
+    labs(title = "100-fold Cross Validation Sample MAEs - Model D") +
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
 ```
 
 ## Logistic Model Analysis 
@@ -773,7 +805,7 @@ Similarly to our Regression Model approach, we created two logistical models we 
 
 The simple model focuses only on location and if the delays was 10 minutes or not. The complex model factors in everything given within the dataset including the delay length, location, distance between stations, etc. 
 
-```{r logistic, max.height="100px"}
+```{r logistic}
 ride.TrainLog <- ride.Train %>% 
   mutate(delay10 = ifelse(delay_minutes >=10,1,ifelse(!is.na(delay_minutes),0,NA)))
 
@@ -791,7 +823,7 @@ reg2Model <- glm(delay10 ~ .,
 reg5Model <- glm(delay10 ~ .,
                   data=as.data.frame(ride.TrainLog %>% 
                     dplyr::select(-from_station,-to_station,-delay_minutes,-line_length,
-                                  -Trip_Count,-geometry.x,-week,-day,-from_rail_service)%>%
+                                  -Trip_Count,-geometry.x,-week,-day)%>%
                       st_drop_geometry()),
                   family="binomial" (link="logit"))
 
@@ -867,7 +899,7 @@ AUC5 <- auc(testProbs5$Outcome, testProbs5$Probs)
 ```
 
 
-
+**Rename these graphs to reference model names in tables above**
 ```{r rocs}
 
 ggarrange(nrow=2,
@@ -900,115 +932,17 @@ ggplot(testProbs2, aes(d = as.numeric(Outcome), m = Probs)) +
   geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Model B"),
+  labs(title = "ROC Curve - Reg2"),
 
 # roc_curve_reg5
 ggplot(testProbs5, aes(d = as.numeric(Outcome), m = Probs)) +
   geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Model D")
+  labs(title = "ROC Curve - Reg5")
 )
 
 ```
-
-The distribution of prediction probabilities is very difficult to distinguish in part due to the small number of truly delayed samples as shown with the distribution plots being similar for model B and concentrated at zero for model D. The ROC curves give slightly more insight on their performance with the simple regression's (model B's) number of false negatives, where a train delayed by 10 minutes or more is not predicted as such, contributing to a smaller metric of `r round(AUC2*100,2)`% as opposed to model D's `r round(AUC5*100,2)`%. The latter's high value would be concern for overfitting despite the respective imperfect sensitivity and specificity of `r complex$table[4]/sum(complex$table[3:4])` and `r complex$table[1]/sum(complex$table[c(1,3)])`. Oversampling was also conducted to observe if the model's probability densities were limited by having only 5 trips delayed beyond 10 minutes with tests on different months or timeframes of data being an alternative. With oversampling, model D performed the same and model B performed marginally better in performance given false positives only connote extra notifications to users when predicted early. Yet oversampling is overall not considered a necessary step for this logit model's purpose with model D being considered the best.
-
-```{r resampled, eval=F}
-
-ovunSample <- ovun.sample(delay10~.,data=ride.TrainLog %>% st_drop_geometry(),
-                          N=nrow(ride.TrainLog)*1.5,method="both",p=0.5,seed=448)$data
-
-reg2Model <- glm(delay10 ~ .,
-                  data=as.data.frame(ovunSample %>% 
-                    dplyr::select(from_id,to_id,dotw,delay10) %>%
-                      st_drop_geometry()),
-                  family="binomial" (link="logit"))
-
-reg5Model <- glm(delay10 ~ .,
-                  data=as.data.frame(ovunSample %>% 
-                    dplyr::select(-from_station,-to_station,-delay_minutes,-line_length,
-                                  -Trip_Count,-week,-day)%>%
-                      st_drop_geometry()),
-                  family="binomial" (link="logit"))
-
-testProbs2ovun <- data.frame(Outcome = as.factor(ride.TestLog$delay10),
-                        Probs = predict(reg2Model, ride.TestLog, type= "response"))
-
-testProbs5ovun <- data.frame(Outcome = as.factor(ride.TestLog$delay10),
-                        Probs = predict(reg5Model, ride.TestLog, type= "response"))
-
-testProbs2ovun <- 
-  testProbs2ovun %>%
-  mutate(
-    # for 0.5 threshold
-    predOutcome  = as.factor(ifelse(testProbs2ovun$Probs > 0.5 , 1, 0))
-    )
-
-
-testProbs5ovun <- 
-  testProbs5ovun %>%
-  mutate(
-    # for 0.5 threshold
-    predOutcome  = as.factor(ifelse(testProbs5ovun$Probs > 0.5 , 1, 0))
-    )
-
-
-simpleOvun <- caret::confusionMatrix(testProbs2ovun$predOutcome, testProbs2ovun$Outcome,
-                       positive = "1")
-
-complexOvun <- caret::confusionMatrix(c(testProbs5ovun$predOutcome), c(testProbs5ovun$Outcome),
-                       positive = "1")
-
-simpleOvun$table
-complexOvun$table
-
-auc(testProbs2ovun$Outcome, testProbs2ovun$Probs)
-
-auc(testProbs5ovun$Outcome, testProbs5ovun$Probs)
-
-ggarrange(nrow=2,
-# kitchen sink densities
-ggplot(testProbs2ovun, aes(x = Probs, fill = as.factor(Outcome))) + 
-  geom_density() +
-  facet_grid(Outcome ~ .) +
-  scale_fill_manual(values = palette2) +
-  labs(x = "Program Entry", y = "Density of probabilities",
-       title = "Distribution of predicted probabilities by observed outcome",
-       subtitle = "Model B, Oversampled") +
-  theme(strip.text.x = element_text(size = 18),
-        legend.position = "none"),
-
-# engineered densities
-ggplot(testProbs5ovun, aes(x = Probs, fill = as.factor(Outcome))) + 
-  geom_density() +
-  facet_grid(Outcome ~ .) +
-  scale_fill_manual(values = palette2) +
-  labs(x = "Program Entry", y = "Density of probabilities",
-       title = "Distribution of predicted probabilities by observed outcome",
-       subtitle = "Model D, Oversampled") +
-  theme(strip.text.x = element_text(size = 18),
-        legend.position = "none"))
-
-
-ggarrange(nrow=2,
-# roc_curve_reg2
-ggplot(testProbs2ovun, aes(d = as.numeric(Outcome), m = Probs)) +
-  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
-  style_roc(theme = theme_grey) +
-  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Model B Oversampled"),
-
-# roc_curve_reg5
-ggplot(testProbs5ovun, aes(d = as.numeric(Outcome), m = Probs)) +
-  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
-  style_roc(theme = theme_grey) +
-  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Model D Oversampled")
-)
-
-```
-
 
 ```{r pred_mean}
 r5p <- lapply(week_predictions[week_predictions$Regression=="DTime_Origin_Dest_FE_timeLags",]$Prediction,mean,na.rm=T)[c(1:3)]
@@ -1035,7 +969,3 @@ r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
 ```
 
 The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
-
-# Discussion
-
-*   The training and testing set presented in this report occurs during the beginning of the COVID pandemic in the US (April and May 2020), but our proposed use of the model entails training data 28-35 days (1 month) before the section of time being predicted for to reduce overhead in the time taken to train the models. To that end, the process can be reproduced easily.
