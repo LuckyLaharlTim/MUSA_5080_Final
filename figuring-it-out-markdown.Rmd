@@ -2,8 +2,9 @@
 title: "TrainTracker: Predicting New Jersey Transit Delays & Unifying Transit Information"
 author: "Trevor Kapuvari & Timothy Oliver"
 date: "15 December 2023"
-output:
+output: 
   html_document:
+    theme: united
     toc: true
     toc_float: true
     code_folding: hide
@@ -42,6 +43,7 @@ library(stargazer)
 library(vtable)
 library(tidyverse)
 library(tidycensus)
+library(prettydoc)
 library(sf)
 library(spdep)
 library(caret)
@@ -1035,6 +1037,8 @@ r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
 ```
 
 The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
+
+This model and its results serves as an experiment for regional train delay predictions, and improved analyses of this model would require scaling data beyond the New Jersey region and potentially factoring in additional features that correlate with delays. 
 
 # Discussion
 
