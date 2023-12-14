@@ -234,7 +234,7 @@ nj = census%>%filter(grepl("New Jersey",NAME))
 rm(census)
 ```
 
-# Means of Transport 
+## Means of Transport 
 
 This maps indicates the importance of using NYC and NJ Transit as our initial case-study area for our model. Commuting by train is underused in most areas of the country especially when distant from any major cities. New Jersey has a special case of being between two major metropolitan areas, New York and Philadelphia. This location makes the state optimal for long-distance train studies. Even when the majority of New York State and Pennsylvania have lower numbers of commuters, denoted by blue, New Jersey's roughly purple palette proves the importance of trains in the regional economy. 
 
@@ -286,7 +286,7 @@ ride.panelM <- may_w_stations %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panelM) %>% 
   # changed fromLon & Lat to fromCountyLon & Lat
-  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length,status,from_rail_service) %>%
   rename(line_length = SHAPE_Length) %>%
   summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
   ungroup() %>%
@@ -321,7 +321,7 @@ ride.panelA <- apr_w_stations %>%
   mutate(Trip_Counter = 1) %>%
   right_join(study.panelA) %>% 
   # changed fromLon & Lat to fromCountyLon & Lat
-  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length) %>%
+  group_by(interval60, from_id, to_id, from_station, to_station, delay_minutes,SHAPE_Length,status,from_rail_service) %>%
   rename(line_length = SHAPE_Length) %>%
   summarize(Trip_Count = sum(Trip_Counter, na.rm=T)) %>%
   ungroup() %>%
@@ -355,7 +355,7 @@ ride.panelA <- apr_w_stations %>%
 ```
 
 
-# New Jersey Transit Map
+## New Jersey Transit Map
 
 The map below depicts New Jersey Transit lines that we predicted delays for in the model. Predictions within the model ranged between 1 minute to almost 2 hours, for the purpose of the analysis and due to available data, we are focusing our attention of these lines. 
 
@@ -484,9 +484,6 @@ ride.panel <- may_census %>%
 ```
 
 
-
-### timelapse of reliability (week) --REMOVE HEADER
-
 ```{r timelapse_beg,eval=F,include=F}
 may_w_stations %>% 
   # merge(y=census,by.x="Origin.County",by.y="GEOID") %>%
@@ -549,17 +546,20 @@ ggplot()+
 ```
 
 
-### Predicting Delay Time and Significance
+# Predicting Delay Time and Significance
 
 As data about the NJ Transit train infrastructure and specific trips were analyzed alongside introducing relevant outside information, the decision for two predictive models--one linear model and a binomial logistic regression model--was made followed by their constituent features.
 
 *   <ins>**The Linear Model**</ins>
-  -   why, number, features included(?)
-  -   The choice to train the data on the month of April 
+
+As stated before, the severity of a delay is important in helping riders make transportation decisions and preemptively evaluating the reliability of a specific NJ Transit train trip. For that reason, the linear model built hear will train on data for a month before the time period it is being used to predict for. Predictions on the number of minutes a specific trip is delayed are the main aim of this model with four different regression models being compared to determine the best combination of temporal and NJ Transit features to include.
+
+We limited the inclusion of spatial data and features separated by areal units like spatial units with the belief that the individual rider and demographics would not have a direct effect on train timeliness with the exception of a major disruption or being in a position to enact some change in NJ Transit's policy. Likewise, the brief window of data our model trains on led us to preclude weather data with its minimal immediate effect on speed or boardings and alightments. Any additional features were mainly derived from the existing collection of data such as the scheduled datetime for a trip, the start and stop station, and the line the trip would run on. Time based lags for given frames of time like an hour or day before were the set of newly introduced features.
+    
+    
 *   <ins>**The Logistic Model**</ins>
-  -   why, how linear model focused it, input(?)
-*   <ins>**Features**</ins>
-  -   list, why
+
+This set of predictive models is incorporated into our user or rider-centric use case by notifying riders of significant delays in the TrainTracker application. Provided that a 5-minute delayed train is still delayed, we use a logistic model with the same features as the linear model to anticipate if a given trip is likely to be significant. We chose any delay of 10 minutes or more to be worthy of a notification to users alongside recommendation to request more detailed prediction in addition to the standard prediction done at the beginning of each week for all trips. That is to say that this model predicts if any trip will have a predicted delay of 10 minutes or more.
 
 
 ```{r model_trial}
@@ -573,6 +573,25 @@ ride.Test <- ride.panelM
 #               p = 0.6060172, list = FALSE)
 
 ```
+
+The regression models created from the April 2020 training data include ...
+
+*   *Model A - Simplest*
+
+  -   This model includes the minimum of features. Namely, the hour of the trip's scheduled arrival time and the day of the week (categorical).
+
+*   *Model B - Simple*
+
+  -   This model includes the origin and destination station ideas alongside the day of the week only. Given the somewhat consistent number of trips across hours of the day as seen in the `Train Trips in NYC Area` line graph, we test the idea that the hour of the day is extraneous temporal data accounted for with the day of the week.
+
+*   *Model C - Temporal*
+
+ -   This model includes the trip hour and day of the week alongside multiple time lags. Specifically, time lags for one hour, two hours, three hours, 12 hours, and 1 day are included providing only temporal predictors in this model. 
+
+*   *Model D - Complex*
+
+ -   This model includes the previously mentioned time lags and trip node IDs in addition to categorical data on the trip status--if it has departed or if its scheduled arrival time is estimated. With the potential for train unique train lines to have no data within specific months, the length of the line the trip uses is also added to incorporate consideration of the train line.
+
 
 ```{r five_models }
 # uniqueLine <- ride.Test[ride.Test$line=="SILVER STAR  -R",]
@@ -596,12 +615,14 @@ reg4 <-
      data=ride.Train)
 
 reg5 <- 
-  lm(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + # line_length +
+  lm(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + status + line_length +
                    lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day, 
      data=ride.Train)
 ```
 
-## Test set Predictions
+## Examining Accuracy and Generalizability
+
+### Linear Model Results
 
 
 ```{r nest_data , warning = FALSE, message = FALSE}
@@ -630,10 +651,13 @@ week_predictions <-
            MAE = map_dbl(Absolute_Error, mean, na.rm = TRUE),
            sd_AE = map_dbl(Absolute_Error, sd, na.rm = TRUE))
 
-week_predictions[,c(1,3,7:8)] %>% kable() %>% kable_styling()
+week_predictions[,c(1,3,7:8)] %>% filter(!is.na(week)) %>% kable() %>% kable_styling() %>%
+  row_spec(c(1:3), color = "antiquewhite", background = GRAY2) %>%
+    row_spec(c(4:6), color = "antiquewhite", background = GRAY3) %>%
+    row_spec(c(7:9), color = "antiquewhite", background = GRAY4) %>%
+    row_spec(c(10:12), color = "antiquewhite", background = GRAY5)
 ```
 
-## Examining Accuracy and Generalizability
 
 The best models are models B and D, On the specific May 2020 testing set, the simple model (B) performs the best with consistently low error of 1 minute across each week and across the overall month. The complex model (D) performs second-best in the test data ranging from 1-2 minute errors in predictions in each week or about 2 minutes and 10 seconds for the month of May 2020. The bar charts below denote the MAE or average error of the predicted delay time in minutes by each regression model tested. 
 
@@ -704,11 +728,13 @@ ggplot(.)+
   mapTheme()
 ```
 
+
 ### Generalizability Measured through Temporal K-Fold
 
 **Basic CV here is very accurate (something wrong?). R-squared of 1 with MAE in the nanos or lower.**
 *   provided we use reg5 (lags, origin & destination, and time)
 *   using only reg2 (origin and destination) has higher errors
+
 ```{r cross-validation}
 
 # reg.vars <- c("checkout_kiosk_id", "hour(interval60)", "dotw", "Temperature", "Precipitation",
@@ -730,7 +756,7 @@ reg.cv <-
         na.action = na.omit)
 
 reg.cvBest <-
-  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + line_length +
+  train(delay_minutes ~  from_id + to_id + hour(interval60) + dotw + status + line_length +
                    lagHour + lag2Hours +lag3Hours +lag12Hours + lag1day,
      data=ride.Train,
         method = "lm",
@@ -745,22 +771,26 @@ reg.cvBest <-
 #   coord_cartesian(xlim = c(round(min(reg.cv$resample[3]),-3), round(max(reg.cv$resample[3]),-3)))
 #      plotTheme()
      
-  ggplot(reg.cv$resample) + 
-    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
+options(scipen=8,digits=2)
+
+  ggplot(reg.cv$resample,mapping=aes(x=MAE)) + 
+    geom_histogram(fill = "lightgreen",color=BLUE4) +
     scale_fill_manual(values = palette5) +
     labs(title = "100-fold Cross Validation Sample MAEs - Only Day and Stations") +
-  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (min)")
   
-   ggplot(reg.cvBest$resample) + 
-    geom_bar(fill = "lightgreen",aes(y=MAE,x=Resample), position = "dodge", stat="identity",color=BLUE4) +
+   ggplot(reg.cvBest$resample,mapping=aes(x=(MAE %% 1 *60))) + 
+    geom_histogram(fill = "lightgreen",color=BLUE4,bins=5) +
     scale_fill_manual(values = palette5) +
     labs(title = "100-fold Cross Validation Sample MAEs- Complex Model") +
-  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.text.x = element_blank())+xlab(label = "Sample Number (1 to 100)")
+  plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (s)")
+   
+options(scipent=999)
 ```
 
 ## Logistic Model
 
-```{r logistic}
+```{r logistic, max.height="100px"}
 ride.TrainLog <- ride.Train %>% 
   mutate(delay10 = ifelse(delay_minutes >=10,1,ifelse(!is.na(delay_minutes),0,NA)))
 
@@ -778,7 +808,7 @@ reg2Model <- glm(delay10 ~ .,
 reg5Model <- glm(delay10 ~ .,
                   data=as.data.frame(ride.TrainLog %>% 
                     dplyr::select(-from_station,-to_station,-delay_minutes,-line_length,
-                                  -Trip_Count,-geometry.x,-week,-day)%>%
+                                  -Trip_Count,-geometry.x,-week,-day,-from_rail_service)%>%
                       st_drop_geometry()),
                   family="binomial" (link="logit"))
 
@@ -882,14 +912,14 @@ ggplot(testProbs2, aes(d = as.numeric(Outcome), m = Probs)) +
   geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Reg2"),
+  labs(title = "ROC Curve - Simple Regression"),
 
 # roc_curve_reg5
 ggplot(testProbs5, aes(d = as.numeric(Outcome), m = Probs)) +
   geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
   style_roc(theme = theme_grey) +
   geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
-  labs(title = "ROC Curve - Reg5")
+  labs(title = "ROC Curve - Complex Regression")
 )
 
 ```
@@ -919,3 +949,7 @@ r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
 ```
 
 The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
+
+# Discussion
+
+*   The training and testing set presented in this report occurs during the beginning of the COVID pandemic in the US (April and May 2020), but our proposed use of the model entails training data 28-35 days (1 month) before the section of time being predicted for to reduce overhead in the time taken to train the models. To that end, the process can be reproduced easily.
