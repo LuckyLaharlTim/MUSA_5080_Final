@@ -701,7 +701,7 @@ week_predictions %>%
     geom_bar(aes(fill = Regression), position = "dodge", stat="identity",color=BLUE4) +
   geom_text(aes(label=round(MAE,2)),color="white",vjust=1.5)+
     scale_fill_manual(values = palette5) +
-    labs(title = "Mean Absolute Errors by model specification for May 2023") +
+    labs(title = "Mean Absolute Errors by model specification for May 2020") +
   plotTheme() + theme(axis.text.x = element_blank(),axis.text.y = element_blank())
 ```
 
@@ -867,6 +867,7 @@ AUC2 <- auc(testProbs2$Outcome, testProbs2$Probs)
 AUC5 <- auc(testProbs5$Outcome, testProbs5$Probs)
 
 ```
+
 # Comparing the Model's Goodness of Fit 
 
 
