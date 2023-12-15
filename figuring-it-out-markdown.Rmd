@@ -381,7 +381,7 @@ ggplot()+
 
 ## Temporal Train Cycle 
 
-The graph below shows a temporal cycle of train trips by NJ Transit. One important factor when accounting for delays, whether the cause or the effects, is the time of day. The pattern between peak hours and when there are few trains can assist the model in detecting patterns in delays caused by time, and how greatly that effects the probability or length of the delay. 
+The graph below shows a temporal cycle of train trips by NJ Transit. One important factor when accounting for delays is the time of day. The pattern between peak hours and when there are few trains can assist the model in detecting patterns in delays caused by time, and how greatly that effects the probability or length of the delay. 
 
 ```{r plots}
 
@@ -489,7 +489,7 @@ ride.panel <- may_census %>%
 
 ### Station Depature Tracking
 
-The table provides a comprehensive list of all stations and the amount of departures they have every 60 minutes, we use these amounts to measure business and tracking individuals trains in the model, predicting if a delay on one station will consequently cause additional delays later in the sequence. 
+The cleaned data provides a comprehensive list of all stations and the amount of departures they have every 60 minutes, we use these amounts to measure business and tracking individuals trains in the model, predicting if a delay on one station will consequently cause additional delays later in the sequence. 
 
 ```{r timelapse_beg,eval=F,include=F}
 may_w_stations %>% 
@@ -709,7 +709,7 @@ week_predictions %>%
 ### Generalizability Measured through Temporal K-Fold
 
 
-To ensure our model's integrity we conducted 100 k-fold cross-validations among Model B and Model D. We used these two models because Model B was the most accurate while Model D was most generalized, incorporating all other models into its regression. For the cross validation, Model D has a consistently low absolute error with no error exceeding a very small fraction of a second. These suggest model D's accuracy for individual trips. Model B's cross validations has more outliers across the samples which was which is at odds with its performance shown in previous graphs. These cross validation results encourage tests with train data from other months to truly determine the best model.
+To ensure our model's integrity we conducted 100 k-fold cross-validations among Model B and Model D. We used these two models because Model B was the most accurate while Model D was most generalized, incorporating all other models into its regression. For the cross validation, Model D has a consistently low absolute error with no error exceeding a very small fraction of a second. Model B's cross validations has more outliers across the samples which was which is at odds with its performance shown in previous graphs. Overall this can indicate that Model B is more generalizable and can be scaled to larger regions, having larger error but still simple enough to cater to a scaled dataset. Model D, while precise for our use-case, can potentially be overfitted for New Jersey and the mid-COVID conditions surrounding the dataset. These cross validation results encourage tests with train data from other months to truly determine the best model.
 
 
 ```{r cross-validation}
@@ -753,14 +753,14 @@ options(scipen=8,digits=2)
   ggplot(reg.cv$resample,mapping=aes(x=MAE)) + 
     geom_histogram(fill = "lightgreen",color=BLUE4) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs - Only Day and Stations") +
+    labs(title = "100-fold Cross Validation Sample MAEs - Model B") +
   plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (min)")
 
   
    ggplot(reg.cvBest$resample,mapping=aes(x=(MAE %% 1 *60))) + 
     geom_histogram(fill = "lightgreen",color=BLUE4,bins=5) +
     scale_fill_manual(values = palette5) +
-    labs(title = "100-fold Cross Validation Sample MAEs - Complex Model") +
+    labs(title = "100-fold Cross Validation Sample MAEs - Model D") +
   plotTheme()+theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())+xlab(label = "Prediction Mean Absolute Error (s)")
    
 options(scipent=999)
@@ -883,7 +883,7 @@ ggplot(testProbs2, aes(x = Probs, fill = as.factor(Outcome))) +
        title = "Distribution of predicted probabilities by observed outcome",
        subtitle = "Model B") +
   theme(strip.text.x = element_text(size = 18),
-        legend.position = "none"),
+        legend.position = "none"))
 
 
 
@@ -1027,10 +1027,10 @@ r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
 
 ```
 
-# Discussion
+# Results
 
 The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
 
-This model and its results serves as an experiment for regional train delay predictions, and improved analyses of this model would require scaling data beyond the New Jersey region and potentially factoring in additional features that correlate with delays. 
+This model and its results serves as an experiment for regional train delay predictions, and improved analyses of this model would require scaling data beyond the New Jersey region and potentially factoring in additional features that correlate with delays. This analysis also could have deeper evaluations regarding weather conditions altering delay patterns. Additionally, creating new models that blend the benefits and characteristics of each regression and logit can develop an ideal prediction for probability of delays and length of delays for New Jersey or the northeast. 
 
 
