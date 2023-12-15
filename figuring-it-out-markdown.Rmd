@@ -96,7 +96,7 @@ options(scipen=999)
 
 # Data Sources
 
-Our initial dataset is derived from Kaggle's NJ Transit & Amtrak Rail Performance. Due to the high volume of data, we narrowed the scope of the model to focus on April & May 2020. The data features Amtrak trains between New York & New Jersey, as well as recording lines from NJ Transit. This sample provides insight on performance at peak train-use because the Northeast Corridor, the main rail studied, is considered the busiest passenger rail line in the United States. Within the data we are able to explore the individual train's scheduled time, actual time, planned stations, and sequence in train line over the course of two months. That information allows our model to predict a delay based on its past performance and time of the week/day to detect any temporal patterns that may exist. 
+Our initial dataset is derived from Kaggle's NJ Transit & Amtrak Rail Performance. Due to the high volume of data, we narrowed the scope of the model to focus on April & May 2020. The data features Amtrak trains between New York & New Jersey, as well as recording lines from NJ Transit. This sample provides insight on performance of train-use between two major metropolitan areas, New York & Philadelphia. Within the data we are able to explore the individual train's scheduled time, actual time, planned stations, and sequence in train line over the course of two months. That information allows our model to predict a delay based on its past performance and time of the week/day to detect any temporal patterns that may exist. 
 
 
 Source: https://www.kaggle.com/datasets/pranavbadami/nj-transit-amtrak-nec-performance
@@ -187,7 +187,7 @@ rm(datMay2020,datApr2020)
 ```
 
 
-Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and southeast Pennsylvania area. The data here provided us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel as seen with [recent articles](https://www.northjersey.com/story/news/transportation/2023/11/01/nj-transit-bus-ridership-bounced-back-covid/71394013007/) detailing NJ Transit approaching pre-COVID levels while other areas have struggled to reclaim riders. 
+Additional data from the American Community Survey (ACS) provided us insight on commuter data for New York, New Jersey, and southeast Pennsylvania area. The data provided us the sense of urgency and importance these rail lines are to commuters. Areas surrounding New York City greatly rely on trains and public transit for commuting or everyday travel as seen with [recent articles](https://www.northjersey.com/story/news/transportation/2023/11/01/nj-transit-bus-ridership-bounced-back-covid/71394013007/) detailing NJ Transit approaching pre-COVID levels while other areas have struggled to reclaim riders. This example with NJ Transit emphasizes the importance of the regional train network and the need to monitor delays and statuses of each line.   
 
 ```{r wrangling, results='hide',cache=T}
 
@@ -610,7 +610,7 @@ The regression models created from the April 2020 training data include ...
 
 *   *Model D - Complex*
 
- -   This model includes the previously mentioned time lags and trip node IDs in addition to categorical data on the trip status--if it has departed or if its scheduled arrival time is estimated. With the potential for train unique train lines to have no data within specific months, the length of the line the trip uses is also added to incorporate consideration of the train line.
+ -   This model includes the previously mentioned time lags and trip node IDs in addition to categorical data on the trip status--if it has departed or if its scheduled arrival time is estimated. With the potential for train unique train lines to have no data within specific months, the length of the line the trip uses is also added to incorporate consideration of the train line. The training and testing data presented occurs during the beginning of the COVID pandemic in the US (April and May 2020), but our proposed use of the model entails training data 28-35 days (1 month) before the section of time being predicted for to reduce overhead in the time taken to train the models. To that end, the process can be reproduced easily.
 
 
 ```{r five_models }
@@ -884,16 +884,6 @@ ggplot(testProbs2, aes(x = Probs, fill = as.factor(Outcome))) +
   theme(strip.text.x = element_text(size = 18),
         legend.position = "none"),
 
-# engineered densities
-ggplot(testProbs5, aes(x = Probs, fill = as.factor(Outcome))) + 
-  geom_density() +
-  facet_grid(Outcome ~ .) +
-  scale_fill_manual(values = palette2) +
-  labs(x = "Program Entry", y = "Density of probabilities",
-       title = "Distribution of predicted probabilities by observed outcome",
-       subtitle = "Model D") +
-  theme(strip.text.x = element_text(size = 18),
-        legend.position = "none"))
 
 
 ggarrange(nrow=2,
@@ -1036,10 +1026,10 @@ r2meanO <- mean(c(r2o[[1]],r2o[[2]],r2o[[3]]))
 
 ```
 
+# Discussion
+
 The simple model considering only the day of the week and the trip's origin and destination has a mean predicted delay of **`r round(r2meanP,0)` minutes and `r round(r2meanP %% 1 * 60,0)` seconds**, and the complex model considering previous factors and time lags has a mean predicted delay of **`r round(r5meanP,0)` minutes and `r round(r5meanP %% 1 * 60,0)` seconds** while the true average observed delay is **`r round(r5meanO,0)` minutes and `r round(r5meanO %% 1 * 60,5)` seconds** for May.
 
 This model and its results serves as an experiment for regional train delay predictions, and improved analyses of this model would require scaling data beyond the New Jersey region and potentially factoring in additional features that correlate with delays. 
 
-# Discussion
 
-*   The training and testing set presented in this report occurs during the beginning of the COVID pandemic in the US (April and May 2020), but our proposed use of the model entails training data 28-35 days (1 month) before the section of time being predicted for to reduce overhead in the time taken to train the models. To that end, the process can be reproduced easily.
